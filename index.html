@@ -756,8 +756,11 @@ function updateCropEl() { const b=document.getElementById('crop-box'); b.style.l
 
 function getIB() { const img=document.getElementById('crop-img'); const wrap=document.getElementById('crop-wrap'); const wr=wrap.getBoundingClientRect(); const ir=img.getBoundingClientRect(); return{x:ir.left-wr.left,y:ir.top-wr.top,w:ir.width,h:ir.height}; }
 
-document.getElementById('crop-box').addEventListener('mousedown', startDrag);
-document.getElementById('crop-box').addEventListener('touchstart', e=>{e.preventDefault();startDrag(e.touches[0]);},{passive:false});
+const _cb = document.getElementById('crop-box');
+if(_cb){
+  _cb.addEventListener('mousedown', startDrag);
+  _cb.addEventListener('touchstart', e=>{e.preventDefault();startDrag(e.touches[0]);},{passive:false});
+}
 document.addEventListener('mousemove', onDrag);
 document.addEventListener('mouseup', endDrag);
 document.addEventListener('touchmove', e=>{if(_drag){e.preventDefault();onDrag(e.touches[0]);}},{passive:false});
