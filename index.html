@@ -245,8 +245,8 @@ body{padding-top:40px}
     window._fb = { auth, db, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc };
     onAuthStateChanged(auth, user => {
       window._currentUser = user || null;
-      updateLoginUI(user);
-      if (user) restoreFromFirestore(user.uid);
+      if (window._updateLoginUI) window._updateLoginUI(user);
+      if (user && window._restoreFromFirestore) window._restoreFromFirestore(user.uid);
     });
     window.saveToFirestore = async () => {
       const user = window._currentUser;
@@ -297,7 +297,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
