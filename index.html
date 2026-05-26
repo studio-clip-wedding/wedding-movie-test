@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.0.6 -->
+<!-- FORM VERSION: v1.0.7 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -292,7 +292,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.6</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -406,7 +406,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.0.6';
+const _FORM_VERSION = 'v1.0.7';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2104,18 +2104,18 @@ async function doTempSave() {
   const files = [];
   document.querySelectorAll('.file-list').forEach(list => {
     list.querySelectorAll('.file-item').forEach(item => {
-      if (!item._blob || !item._resolvedPrefix) return;
+      if (!item._blob || !item._fieldId) return;
       const ext      = item._blob.type.includes('video') ? '.mp4' : '.jpg';
-      const fileName = item._resolvedPrefix + ext;
-      files.push({ fieldId: item._fieldId || fileName, fileName, blobRef: item._blob,
+      const fileName = item._fieldId + ext;  // TEMPはfieldIdベース
+      files.push({ fieldId: item._fieldId, fileName, blobRef: item._blob,
         mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
 
-      // マットも収集
+      // マットも収集（fieldId_matto.png）
       const idTrigger = list.closest('.field')?.querySelector('.id-trigger-btn');
       if (idTrigger?._idBlob) {
-        const mattoName = item._resolvedPrefix + '_id.png';
-        files.push({ fieldId: mattoName, fileName: mattoName, blobRef: idTrigger._idBlob,
-          mimeType: 'image/png', isMatto: true, base64: null });
+        const mattoName = item._fieldId + '_matto.png';
+        files.push({ fieldId: item._fieldId + '_matto', fileName: mattoName,
+          blobRef: idTrigger._idBlob, mimeType: 'image/png', isMatto: true, base64: null });
       }
     });
   });
