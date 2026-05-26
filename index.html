@@ -1546,11 +1546,19 @@ async function collectAndSend(gasUrl) {
 
         if (idTrigger && idTrigger._idBlob) {
           const mattoId   = fieldId + '_matto';
-          // ファイル名：resolvedPrefixがあれば使う
           const rp2 = fieldEl ? fieldEl._resolvedPrefix : '';
           const mattoName = rp2 ? (rp2 + '_id.png') : (idTrigger._idName || (fieldId + '_id.png'));
           files.push({ fieldId: mattoId, fileName: mattoName, base64: null, blobRef: idTrigger._idBlob, mimeType: 'image/png', isMatto: true });
           blockFields.push({ label: '人物特定マット', type: 'file_id_matto', fieldId: mattoId, value: mattoName });
+
+          // サンプル合成画像（素材 + マット透過30%）を生成
+          if (fileItem._blob) {
+            const sampleId   = fieldId + '_matto_sample';
+            const sampleName = rp2 ? (rp2 + '_id_sample.jpg') : (fieldId + '_id_sample.jpg');
+            files.push({ fieldId: sampleId, fileName: sampleName, base64: null,
+              blobRef: null, mimeType: 'image/jpeg', isMatto: false, isSample: true,
+              _srcBlob: fileItem._blob, _mattoBlob: idTrigger._idBlob });
+          }
         }
       });
 
@@ -1568,14 +1576,45 @@ async function collectAndSend(gasUrl) {
     });
   });
 
-  // Base64変換（nullチェック付き）
-  await Promise.all(files.filter(f => f.blobRef).map(f => new Promise((resolve, reject) => {
+  // 通常ファイルのBase64変換
+  await Promise.all(files.filter(f => f.blobRef).map(f => new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => { f.base64 = e.target.result.split(',')[1]; delete f.blobRef; resolve(); };
     reader.onerror = () => { console.warn('Base64変換失敗:', f.fileName); resolve(); };
     reader.readAsDataURL(f.blobRef);
   })));
-  // base64が取れなかったファイルを除外
+
+  // サンプル合成画像（素材 + マット透過30%）をCanvasで生成
+  await Promise.all(files.filter(f => f.isSample).map(f => new Promise(resolve => {
+    const loadImg = blob => new Promise(res => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); res(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); res(null); };
+      img.src = url;
+    });
+    Promise.all([loadImg(f._srcBlob), loadImg(f._mattoBlob)]).then(([srcImg, mattoImg]) => {
+      if (!srcImg || !mattoImg) { resolve(); return; }
+      const c = document.createElement('canvas');
+      c.width  = srcImg.naturalWidth;
+      c.height = srcImg.naturalHeight;
+      const ctx = c.getContext('2d');
+      // 素材を描画
+      ctx.drawImage(srcImg, 0, 0);
+      // マットを透過30%で重ねる
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(mattoImg, 0, 0, c.width, c.height);
+      ctx.globalAlpha = 1.0;
+      c.toBlob(blob => {
+        if (!blob) { resolve(); return; }
+        const reader = new FileReader();
+        reader.onload = e => { f.base64 = e.target.result.split(',')[1]; delete f._srcBlob; delete f._mattoBlob; resolve(); };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.92);
+    });
+  })));
+
+  // base64が取れたファイルのみ送信
   const validFiles = files.filter(f => f.base64);
 
   // 送信設定を取得
@@ -1859,6 +1898,7 @@ function exportSpreadsheet() {
         if (type === 'file' || type === 'video_file' || type === 'file_id') {
           if (!curSub.fields.includes('素材')) curSub.fields.push('素材');
           if (type === 'file_id' && !curSub.fields.includes('人物特定マット')) curSub.fields.push('人物特定マット');
+          if (type === 'file_id' && !curSub.fields.includes('サンプルマット')) curSub.fields.push('サンプルマット');
         } else {
           curSub.fields.push(title);
         }
