@@ -271,20 +271,21 @@ body{padding-top:40px}
         });
       } catch(e) { console.warn('Firestore保存エラー:', e); }
     };
-    async function restoreFromFirestore(uid) {
+    window._restoreFromFirestore = async function(uid) {
       try {
         const snap = await getDoc(doc(db, 'formData', uid, 'draft', 'data'));
         if (!snap.exists()) return;
         const data = snap.data();
         if (!data.basic) return;
         Object.entries(data.basic).forEach(([lbl, val]) => {
-          document.querySelectorAll('.basic-section input, .basic-section select, .basic-section textarea').forEach(el => {
+          document.querySelectorAll('input, select, textarea').forEach(el => {
             const elLbl = el.closest('.field')?.querySelector('label')?.textContent?.replace(/必須|任意/g,'').trim();
             if (elLbl === lbl) el.value = val;
           });
         });
+        console.log('Firestoreから復元しました');
       } catch(e) { console.warn('Firestore復元エラー:', e); }
-    }
+    };
   </script>
 </head>
 <body>
@@ -2159,6 +2160,10 @@ function updateLoginUI(user) {
       else el.value = '';
     });
   }
+}
+// モジュールから呼べるようにwindowに公開（フォームのみ：data-managed属性で判定）
+if (document.getElementById('login-gate')?.dataset.managed === 'true') {
+  window._updateLoginUI = updateLoginUI;
 }
 
 async function firebaseLogin() {
