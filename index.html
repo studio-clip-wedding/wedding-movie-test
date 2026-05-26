@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.0.2 -->
+<!-- FORM VERSION: v1.0.5 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -217,6 +217,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 #login-gate .gate-btn{display:flex;align-items:center;gap:10px;padding:12px 28px;border-radius:8px;border:1px solid var(--bs);background:#fff;color:#333;cursor:pointer;font-size:14px;font-family:'Noto Sans JP',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.1);transition:box-shadow .2s}
 #login-gate .gate-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.15)}
 .gate-version{font-size:10px;color:var(--b3);opacity:.6;margin-top:-8px}
+#temp-save-overlay{position:fixed;inset:0;background:rgba(28,26,23,.6);z-index:9000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;backdrop-filter:blur(2px)}
+#temp-save-overlay.active{display:flex}
+#temp-save-overlay .save-spinner{width:48px;height:48px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+#temp-save-overlay .save-msg{color:#fff;font-size:1rem;font-weight:500;font-family:'Noto Sans JP',sans-serif;letter-spacing:.05em}
+#temp-save-overlay .save-sub{color:rgba(255,255,255,.6);font-size:.8rem;font-family:'Noto Sans JP',sans-serif}
+@keyframes spin{to{transform:rotate(360deg)}}
 #login-gate .gate-btn img{width:20px;height:20px}
 
 /* ===== ログインバー ===== */
@@ -285,7 +291,8 @@ body{padding-top:40px}
   </script>
 </head>
 <body>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">⏳ 自動保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -399,7 +406,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.0.2';
+const _FORM_VERSION = 'v1.0.5';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -741,6 +748,8 @@ function buildFileField(id, cropRatioStr, withIdentification) {
   function clearImg() {
     inp.value = ''; list.innerHTML = '';
     unlockPair(wrap);
+    // 画像削除後にTEMP保存
+    setTimeout(() => triggerTempSave(), 500);
   }
 
   inp.addEventListener('change', () => {
@@ -841,6 +850,8 @@ function buildFileField(id, cropRatioStr, withIdentification) {
                     idDelBtn.remove();
                     const b2 = list.querySelector('.id-badge');
                     if (b2) b2.remove();
+                    // 人物特定削除後にTEMP保存
+                    setTimeout(() => triggerTempSave(), 500);
                   };
                   idTrigger.after(idDelBtn);
                 }; frid.readAsDataURL(idBlob);
@@ -915,6 +926,8 @@ function buildFileField(id, cropRatioStr, withIdentification) {
                     idDelBtn.remove();
                     const b2 = list.querySelector('.id-badge');
                     if (b2) b2.remove();
+                    // 人物特定削除後にTEMP保存
+                    setTimeout(() => triggerTempSave(), 500);
                   };
                   idTrigger.after(idDelBtn);
                 }; frid.readAsDataURL(idBlob);
@@ -2116,20 +2129,16 @@ async function doTempSave() {
 }
 
 function showTempSaveIndicator(saving, success) {
-  let el = document.getElementById('temp-save-indicator');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'temp-save-indicator';
-    el.style.cssText = 'position:fixed;bottom:2.5rem;right:1rem;font-size:11px;color:var(--b3);z-index:100;transition:opacity .3s;background:var(--s);padding:4px 10px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.1)';
-    document.body.appendChild(el);
-  }
+  const overlay = document.getElementById('temp-save-overlay');
+  if (!overlay) return;
   if (saving) {
-    el.textContent = '⏳ 保存中...';
-    el.style.opacity = '1';
+    overlay.querySelector('.save-msg').textContent = '⏳ 自動保存中...';
+    overlay.querySelector('.save-sub').textContent = 'しばらくお待ちください';
+    overlay.classList.add('active');
   } else {
-    el.textContent = success ? '✓ 自動保存済み' : '⚠ 保存失敗';
-    el.style.opacity = '1';
-    setTimeout(() => { el.style.opacity = '0'; }, 2000);
+    overlay.querySelector('.save-msg').textContent = success ? '✓ 保存完了' : '⚠ 保存に失敗しました';
+    overlay.querySelector('.save-sub').textContent = success ? '' : '通信状況をご確認ください';
+    setTimeout(() => { overlay.classList.remove('active'); }, success ? 800 : 2000);
   }
 }
 
