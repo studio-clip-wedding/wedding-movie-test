@@ -216,7 +216,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -1526,7 +1526,7 @@ async function collectAndSend(gasUrl) {
         // 人物特定マット（file-wrapスコープで検索）
         const fileWrap = fileList.closest('.file-wrap');
         const idTrigger = fileWrap ? fileWrap.querySelector('.id-trigger-btn') : null;
-        alert('idTrigger: ' + (idTrigger ? 'found' : 'null') + ' / _idBlob: ' + (idTrigger ? (idTrigger._idBlob ? 'set' : 'null') : 'n/a'));
+
         if (idTrigger && idTrigger._idBlob) {
           const mattoId   = fieldId + '_matto';
           // ファイル名：resolvedPrefixがあれば使う
