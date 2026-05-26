@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.0.8 -->
+<!-- FORM VERSION: v1.0.9 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -292,7 +292,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.9</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -300,7 +300,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -406,7 +406,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.0.8';
+const _FORM_VERSION = 'v1.0.9';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2211,7 +2211,11 @@ function updateLoginUI(user) {
     if (userName)  userName.textContent    = user.displayName || user.email;
     // フォーム画面を表示（CSSのdisplay:noneをsetPropertyで上書き）
     const formScreen = document.getElementById('form-screen');
-    if (formScreen) formScreen.style.setProperty('display', 'block', 'important');
+    if (formScreen) {
+      formScreen.style.setProperty('display', 'block', 'important');
+      // フォーム表示後にTEMP画像を復元
+      setTimeout(() => restoreTempImages(user.uid), 800);
+    }
   } else {
     // 未ログイン → ゲートを表示・フォームを非表示・内容をクリア
     if (gate) gate.style.display = 'flex';
@@ -2229,6 +2233,110 @@ function updateLoginUI(user) {
 // モジュールから呼べるようにwindowに公開（フォームのみ：data-managed属性で判定）
 if (document.getElementById('login-gate')?.dataset.managed === 'true') {
   window._updateLoginUI = updateLoginUI;
+}
+
+// ========== TEMP画像復元（ログイン時） ==========
+async function restoreTempImages(uid) {
+  if (!window._gasUrl || !window._tempFolderId) return;
+  try {
+    const res = await fetch(window._gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:       'tempList',
+        uid,
+        tempFolderId: window._tempFolderId,
+      })
+    });
+    const result = await res.json();
+    if (result.status !== 'ok' || !result.files?.length) return;
+
+    // fieldIdをキーにしてファイルをマップ化
+    const fileMap = {};
+    result.files.forEach(f => { fileMap[f.fieldId] = f; });
+
+    // 各file-itemのfieldIdと照合して復元
+    document.querySelectorAll('.file-list').forEach(list => {
+      const wrap    = list.closest('.field');
+      const fieldId = wrap?._fieldId;
+      if (!fieldId || !fileMap[fieldId]) return;
+
+      const f = fileMap[fieldId];
+      // URLからBlobを取得してitemに設定
+      fetch(f.url)
+        .then(r => r.blob())
+        .then(blob => {
+          // file-itemがすでにあればスキップ
+          if (list.querySelector('.file-item')) return;
+
+          const item = document.createElement('div');
+          item.className = 'file-item';
+          item._blob     = blob;
+          item._fieldId  = fieldId;
+          item._tempSaved = true;  // 復元済みフラグ
+
+          const del = document.createElement('button');
+          del.className = 'file-del'; del.textContent = '✕'; del.type = 'button';
+          del.onclick = () => {
+            list.innerHTML = '';
+            if (wrap) unlockPair(wrap);
+            setTimeout(() => triggerTempDelete(fieldId), 500);
+          };
+
+          if (blob.type.startsWith('image/')) {
+            const url  = URL.createObjectURL(blob);
+            const thumb = document.createElement('img');
+            thumb.className = 'crop-thumb'; thumb.src = url;
+            thumb.onclick = () => openLightbox(url);
+            item.appendChild(thumb);
+          }
+          const name = document.createElement('span');
+          name.textContent = f.fileName;
+          const size = document.createElement('span');
+          size.className = 'file-size';
+          size.textContent = (blob.size / 1024).toFixed(0) + ' KB';
+          item.appendChild(name);
+          item.appendChild(size);
+          item.appendChild(del);
+          list.appendChild(item);
+
+          // マットも復元
+          const mattoKey = fieldId + '_matto';
+          if (fileMap[mattoKey]) {
+            const mf = fileMap[mattoKey];
+            fetch(mf.url).then(r => r.blob()).then(mattoBlob => {
+              const idTrigger = wrap?.querySelector('.id-trigger-btn');
+              if (idTrigger) {
+                idTrigger._idBlob  = mattoBlob;
+                idTrigger._idName  = mf.fileName;
+                idTrigger._tempSaved = true;
+                // バッジ表示
+                const badge = document.createElement('span');
+                badge.className = 'id-badge'; badge.textContent = '特定済み';
+                list.appendChild(badge);
+                idTrigger.textContent = '再特定';
+                // 削除ボタン
+                const idDelBtn = document.createElement('button');
+                idDelBtn.className = 'id-del-btn'; idDelBtn.textContent = '人物特定を削除'; idDelBtn.type = 'button';
+                idDelBtn.onclick = () => {
+                  idTrigger._idBlob = null; idTrigger._idName = null;
+                  idTrigger.textContent = '人物特定';
+                  idDelBtn.remove();
+                  const b2 = list.querySelector('.id-badge');
+                  if (b2) b2.remove();
+                  setTimeout(() => triggerTempSave(), 500);
+                };
+                idTrigger.after(idDelBtn);
+              }
+            });
+          }
+        })
+        .catch(e => console.warn('TEMP復元エラー:', fieldId, e));
+    });
+
+    console.log('TEMP画像復元完了: ' + result.files.length + '件');
+  } catch(e) {
+    console.warn('TEMP復元リクエストエラー:', e);
+  }
 }
 
 async function firebaseLogin() {
