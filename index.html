@@ -1558,6 +1558,7 @@ async function collectAndSend(gasUrl) {
             files.push({ fieldId: sampleId, fileName: sampleName, base64: null,
               blobRef: null, mimeType: 'image/jpeg', isMatto: false, isSample: true,
               _srcBlob: fileItem._blob, _mattoBlob: idTrigger._idBlob });
+            blockFields.push({ label: 'サンプルマット', type: 'file_id_sample', fieldId: sampleId, value: sampleName });
           }
         }
       });
