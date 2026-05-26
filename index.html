@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.1.0 -->
+<!-- FORM VERSION: v1.1.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -266,11 +266,11 @@ body{padding-top:40px}
           const lbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
           if (lbl && el.value && el.value !== '') snapshot[lbl] = el.value;
         });
-        // ブロック数を保存（subsectionごとのブロック数）
+        // ブロック数を保存（block-grpごとのブロック数）
         const blockCounts = {};
-        document.querySelectorAll('.sub-section').forEach(sub => {
-          const subId = sub.dataset.subId || sub.id;
-          const count = sub.querySelectorAll('.block-item').length;
+        document.querySelectorAll('.block-grp').forEach(grp => {
+          const subId = grp.dataset.subId;
+          const count = grp.querySelectorAll('.block-item').length;
           if (subId && count > 0) blockCounts[subId] = count;
         });
         await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
@@ -288,16 +288,19 @@ body{padding-top:40px}
 
         // ブロック数を先に復元
         if (data.blockCounts) {
+          console.log('ブロック数復元開始:', data.blockCounts);
           Object.entries(data.blockCounts).forEach(([subId, count]) => {
             const grp = document.querySelector('.block-grp[data-sub-id="' + subId + '"]');
+            console.log('subId:', subId, '→ grp:', grp ? '見つかった' : 'null', 'count:', count);
             if (!grp) return;
             const addBtn = grp.querySelector('.block-add');
             if (!addBtn) return;
             const current = grp.querySelectorAll('.block-item').length;
+            console.log('現在のブロック数:', current, '→ 目標:', count);
             for (let i = current; i < count; i++) addBtn.click();
           });
           // ブロック生成を待ってからテキスト復元
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 500));
         }
 
         // テキストフィールドを復元
@@ -318,7 +321,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.1.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.1.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -432,7 +435,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.1.0';
+const _FORM_VERSION = 'v1.1.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
