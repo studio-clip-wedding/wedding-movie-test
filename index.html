@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.1.6 -->
+<!-- FORM VERSION: v1.1.7 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -321,7 +321,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.1.6</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.1.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -435,7 +435,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.1.6';
+const _FORM_VERSION = 'v1.1.7';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2243,10 +2243,12 @@ function updateLoginUI(user) {
     const formScreen = document.getElementById('form-screen');
     if (formScreen) {
       formScreen.style.setProperty('display', 'block', 'important');
-      // _gasUrlとtempFolderIdが設定されてからTEMP画像を復元
+      // _gasUrlとtempFolderIdが設定されてから1回だけTEMP画像を復元
+      let _restored = false;
       const waitAndRestore = (attempts) => {
-        if (attempts <= 0) return;
+        if (_restored || attempts <= 0) return;
         if (window._gasUrl && window._tempFolderId) {
+          _restored = true;
           setTimeout(() => restoreTempImages(user.uid), 500);
         } else {
           setTimeout(() => waitAndRestore(attempts - 1), 300);
@@ -2341,10 +2343,11 @@ async function restoreTempImages(uid) {
       item.appendChild(del);
       list.appendChild(item);
 
-      // マットも復元
-      const mattoKey = fieldId + '_matto';
-      if (fileMap[mattoKey]) {
-        const mf       = fileMap[mattoKey];
+      // マットも復元（fieldId + '_matto' で検索）
+      const mattoKey  = fieldId + '_matto';
+      const mattoFile = fileMap[mattoKey];
+      if (mattoFile) {
+        const mf       = mattoFile;
         const mBytes   = atob(mf.base64);
         const mArr     = new Uint8Array(mBytes.length);
         for (let i = 0; i < mBytes.length; i++) mArr[i] = mBytes.charCodeAt(i);
