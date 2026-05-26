@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.2.0 -->
+<!-- FORM VERSION: v1.2.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -273,8 +273,19 @@ body{padding-top:40px}
           const count = grp.querySelectorAll('.block-item').length;
           if (subId && count > 0) blockCounts[subId] = count;
         });
+        // fieldId→{subId, blockIndex}のマッピングを保存
+        const fieldMap = {};
+        document.querySelectorAll('.block-grp').forEach(grp => {
+          const subId = grp.dataset.subId;
+          grp.querySelectorAll('.block-item').forEach((item, blockIdx) => {
+            item.querySelectorAll('.file-list').forEach(list => {
+              const inp = list.closest('.file-wrap')?.querySelector('input[type=file]');
+              if (inp?.id) fieldMap[inp.id] = { subId, blockIndex: blockIdx };
+            });
+          });
+        });
         await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
-          fields: snapshot, blockCounts, updatedAt: new Date().toISOString()
+          fields: snapshot, blockCounts, fieldMap, updatedAt: new Date().toISOString()
         });
         console.log('Firestore保存:', Object.keys(snapshot).length + '件 ブロック:', blockCounts);
       } catch(e) { console.warn('Firestore保存エラー:', e); }
@@ -321,7 +332,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.2.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.2.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -435,7 +446,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.2.0';
+const _FORM_VERSION = 'v1.2.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2301,15 +2312,44 @@ async function restoreTempImages(uid) {
     const fileMap = {};
     result.files.forEach(f => { fileMap[f.fieldId] = f; });
 
-    // 各file-listのfieldIdと照合して復元
-    document.querySelectorAll('.file-list').forEach(list => {
-      const wrap    = list.closest('.file-wrap');
-      // file-wrapのinput要素のidをfieldIdとして使用
-      const inp     = wrap?.querySelector('input[type=file]');
-      const fieldId = inp?.id;
-      if (!fieldId || !fileMap[fieldId]) return;
+    // FirestoreのfieldMapを取得（subId + blockIndexで正しいフィールドを特定）
+    let firestoreFieldMap = {};
+    try {
+      const { getFirestore, doc, getDoc } = window._fb;
+      const db   = getFirestore ? getFirestore() : null;
+      if (db) {
+        const snap = await window._fb.getDoc(window._fb.doc(
+          window._fb.db || getFirestore(),
+          'formData', uid, 'draft', 'data'
+        ));
+        if (snap.exists()) firestoreFieldMap = snap.data().fieldMap || {};
+      }
+    } catch(e) { console.warn('fieldMap取得エラー:', e); }
 
-      const f = fileMap[fieldId];
+    // fieldMap: { fieldId → { subId, blockIndex } } を逆引き
+    // { subId_blockIndex → fieldId } のマップを作成
+    const subBlockToFieldId = {};
+    Object.entries(firestoreFieldMap).forEach(([fid, info]) => {
+      const key = info.subId + '_' + info.blockIndex;
+      subBlockToFieldId[key] = fid;
+    });
+
+    // 現在のフォームのfile-listをsubId+blockIndexで識別して復元
+    document.querySelectorAll('.block-grp').forEach(grp => {
+      const subId = grp.dataset.subId;
+      grp.querySelectorAll('.block-item').forEach((blockItem, blockIdx) => {
+        blockItem.querySelectorAll('.file-list').forEach(list => {
+          const wrap    = list.closest('.file-wrap');
+          const inp     = wrap?.querySelector('input[type=file]');
+          const curFieldId = inp?.id;
+          if (!curFieldId) return;
+
+          // 保存時のfieldIdをsubId+blockIndexから逆引き
+          const key = subId + '_' + blockIdx;
+          const savedFieldId = subBlockToFieldId[key] || curFieldId;
+          const f = fileMap[savedFieldId];
+          if (!f) return;
+
       // Base64からBlobを生成
       const byteChars = atob(f.base64);
       const byteArr   = new Uint8Array(byteChars.length);
@@ -2322,7 +2362,7 @@ async function restoreTempImages(uid) {
       const item = document.createElement('div');
       item.className  = 'file-item';
       item._blob      = blob;
-      item._fieldId   = fieldId;
+      item._fieldId   = curFieldId;  // 現在のfieldIdをセット
       item._tempSaved = true;
 
       const del = document.createElement('button');
@@ -2330,7 +2370,7 @@ async function restoreTempImages(uid) {
       del.onclick = () => {
         list.innerHTML = '';
         if (wrap) unlockPair(wrap);
-        setTimeout(() => triggerTempDelete(fieldId), 500);
+        setTimeout(() => triggerTempDelete(savedFieldId), 500);
       };
 
       if (blob.type.startsWith('image/')) {
@@ -2350,10 +2390,10 @@ async function restoreTempImages(uid) {
       item.appendChild(del);
       list.appendChild(item);
 
-      // マットも復元（fieldId + '_matto' で検索）
-      const mattoKey  = fieldId + '_matto';
+      // マットも復元（savedFieldId + '_matto' で検索）
+      const mattoKey  = savedFieldId + '_matto';
       const mattoFile = fileMap[mattoKey];
-      console.log('マット検索:', mattoKey, '→', mattoFile ? '見つかった' : 'なし', 'fileMap keys:', Object.keys(fileMap));
+      console.log('マット検索:', mattoKey, '→', mattoFile ? '見つかった' : 'なし');
       if (mattoFile) {
         const mf       = mattoFile;
         const mBytes   = atob(mf.base64);
@@ -2414,7 +2454,9 @@ async function restoreTempImages(uid) {
           idTrigger.after(idDelBtn);
         }
       }
-    });
+        }); // file-list forEach
+      }); // block-item forEach
+    }); // block-grp forEach
 
     console.log('TEMP画像復元完了: ' + result.files.length + '件');
   } catch(e) {
