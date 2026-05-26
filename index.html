@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.0.7 -->
+<!-- FORM VERSION: v1.0.8 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -292,7 +292,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -300,7 +300,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -406,7 +406,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.0.7';
+const _FORM_VERSION = 'v1.0.8';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -810,6 +810,7 @@ function buildFileField(id, cropRatioStr, withIdentification) {
             item._name = targetFile.name;
             item._resolvedPrefix = wrap.closest('.field')?._resolvedPrefix || '';
             item._fieldId = id;
+            item._tempSaved = false;  // 新規追加はフラグリセット
             list.appendChild(item);
             // トリミング確定後にTEMP保存
             setTimeout(() => triggerTempSave(), 500);
@@ -886,6 +887,7 @@ function buildFileField(id, cropRatioStr, withIdentification) {
             item._name = targetFile.name;
             item._resolvedPrefix = wrap.closest('.field')?._resolvedPrefix || '';
             item._fieldId = id;
+            item._tempSaved = false;
             list.appendChild(item);
             // 画像確定後にTEMP保存
             setTimeout(() => triggerTempSave(), 500);
@@ -976,6 +978,7 @@ function buildVideoField(id) {
     item._name = f.name;
     item._resolvedPrefix = wrap.closest('.field')?._resolvedPrefix || '';
     item._fieldId = id;
+    item._tempSaved = false;
     list.appendChild(item);
     // 動画確定後にTEMP保存
     setTimeout(() => triggerTempSave(), 500);
@@ -1980,7 +1983,8 @@ function idApply() {
     document.body.style.overflow = '';
     if (_idCallback) _idCallback(blob);
     _idCallback = null;
-    // 人物特定確定後にTEMP保存
+    // 人物特定確定後にTEMP保存（_tempSavedリセット）
+    if (window._idTargetTrigger) window._idTargetTrigger._tempSaved = false;
     setTimeout(() => triggerTempSave(), 500);
   }, 'image/png');
 }
@@ -2105,14 +2109,25 @@ async function doTempSave() {
   document.querySelectorAll('.file-list').forEach(list => {
     list.querySelectorAll('.file-item').forEach(item => {
       if (!item._blob || !item._fieldId) return;
-      const ext      = item._blob.type.includes('video') ? '.mp4' : '.jpg';
-      const fileName = item._fieldId + ext;  // TEMPはfieldIdベース
-      files.push({ fieldId: item._fieldId, fileName, blobRef: item._blob,
-        mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
 
-      // マットも収集（fieldId_matto.png）
+      // 保存済みのものはスキップ
+      if (item._tempSaved) {
+        // マットも確認
+        const idTrigger = list.closest('.field')?.querySelector('.id-trigger-btn');
+        if (idTrigger?._idBlob && idTrigger._tempSaved) return;
+        if (!idTrigger?._idBlob) return;
+      }
+
+      const ext      = item._blob.type.includes('video') ? '.mp4' : '.jpg';
+      const fileName = item._fieldId + ext;
+      if (!item._tempSaved) {
+        files.push({ fieldId: item._fieldId, fileName, blobRef: item._blob,
+          mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
+      }
+
+      // マットも収集（未保存のみ）
       const idTrigger = list.closest('.field')?.querySelector('.id-trigger-btn');
-      if (idTrigger?._idBlob) {
+      if (idTrigger?._idBlob && !idTrigger._tempSaved) {
         const mattoName = item._fieldId + '_matto.png';
         files.push({ fieldId: item._fieldId + '_matto', fileName: mattoName,
           blobRef: idTrigger._idBlob, mimeType: 'image/png', isMatto: true, base64: null });
@@ -2147,8 +2162,20 @@ async function doTempSave() {
       })
     });
     const result = await res.json();
-    if (result.status === 'ok') showTempSaveIndicator(false, true);
-    else showTempSaveIndicator(false, false);
+    if (result.status === 'ok') {
+      showTempSaveIndicator(false, true);
+      // 保存済みフラグをセット
+      document.querySelectorAll('.file-item').forEach(item => {
+        if (item._fieldId && validFiles.some(f => f.fieldId === item._fieldId)) {
+          item._tempSaved = true;
+        }
+      });
+      document.querySelectorAll('.id-trigger-btn').forEach(btn => {
+        if (btn._idBlob && validFiles.some(f => f.isMatto && f.fieldId.startsWith(btn._parentFieldId || ''))) {
+          btn._tempSaved = true;
+        }
+      });
+    } else showTempSaveIndicator(false, false);
   } catch(e) {
     console.warn('TEMP保存エラー:', e);
     showTempSaveIndicator(false, false);
