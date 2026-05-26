@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.0.9 -->
+<!-- FORM VERSION: v1.1.0 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -259,16 +259,24 @@ body{padding-top:40px}
       const user = window._currentUser;
       if (!user) return;
       try {
+        // テキストフィールドを保存
         const snapshot = {};
         document.querySelectorAll('#form-body input, #form-body select, #form-body textarea').forEach(el => {
           if (el.type === 'file') return;
           const lbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
           if (lbl && el.value && el.value !== '') snapshot[lbl] = el.value;
         });
-        await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
-          fields: snapshot, updatedAt: new Date().toISOString()
+        // ブロック数を保存（subsectionごとのブロック数）
+        const blockCounts = {};
+        document.querySelectorAll('.sub-section').forEach(sub => {
+          const subId = sub.dataset.subId || sub.id;
+          const count = sub.querySelectorAll('.block-item').length;
+          if (subId && count > 0) blockCounts[subId] = count;
         });
-        console.log('Firestore保存:', Object.keys(snapshot).length + '件');
+        await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
+          fields: snapshot, blockCounts, updatedAt: new Date().toISOString()
+        });
+        console.log('Firestore保存:', Object.keys(snapshot).length + '件 ブロック:', blockCounts);
       } catch(e) { console.warn('Firestore保存エラー:', e); }
     };
     window._restoreFromFirestore = async function(uid) {
@@ -277,14 +285,32 @@ body{padding-top:40px}
         if (!snap.exists()) return;
         const data = snap.data();
         const fields = data.fields || data.basic || {};
-        if (!Object.keys(fields).length) return;
-        Object.entries(fields).forEach(([lbl, val]) => {
-          document.querySelectorAll('#form-body input, #form-body select, #form-body textarea').forEach(el => {
-            if (el.type === 'file') return;
-            const elLbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
-            if (elLbl === lbl) el.value = val;
+
+        // ブロック数を先に復元
+        if (data.blockCounts) {
+          Object.entries(data.blockCounts).forEach(([subId, count]) => {
+            const grp = document.querySelector('.block-grp[data-sub-id="' + subId + '"]');
+            if (!grp) return;
+            const addBtn = grp.querySelector('.block-add');
+            if (!addBtn) return;
+            const current = grp.querySelectorAll('.block-item').length;
+            for (let i = current; i < count; i++) addBtn.click();
           });
-        });
+          // ブロック生成を待ってからテキスト復元
+          await new Promise(r => setTimeout(r, 300));
+        }
+
+        // テキストフィールドを復元
+        if (Object.keys(fields).length) {
+          Object.entries(fields).forEach(([lbl, val]) => {
+            document.querySelectorAll('#form-body input, #form-body select, #form-body textarea').forEach(el => {
+              if (el.type === 'file') return;
+              const elLbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
+              if (elLbl === lbl) el.value = val;
+            });
+          });
+        }
+
         console.log('Firestoreから復元しました:', Object.keys(fields).length + '件');
       } catch(e) { console.warn('Firestore復元エラー:', e); }
     };
@@ -292,7 +318,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.0.9</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.1.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -316,7 +342,7 @@ body{padding-top:40px}
   </div>
 </div>
   </div>
-  <div class="form-body" id="form-body"><div class="sec-block active" id="sec1"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【基本情報】</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f2">挙式日</label><span class="badge-opt">任意</span></div><input type="date" id="f2"></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f3">式場名</label><span class="badge-opt">任意</span></div><div class="field-hint">正式名称でご入力ください</div><input type="text" id="f3" placeholder="例）〇〇グランドホテル ウェディングホール"><div class="char-count">0 / 80</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f4">メールアドレス</label><span class="badge-opt">任意</span></div><div class="field-hint">お客様のメールアドレスをご入力ください</div><input type="email" id="f4" placeholder="例）example@gmail.com"></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f5">新郎 苗字（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f5" placeholder="例）山田"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f6">新郎 名前（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f6" placeholder="例）太郎"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f7">新郎 苗字（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f7" placeholder="例）YAMADA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f8">新郎 名前（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f8" placeholder="例）TARO"><div class="char-count">0 / 30</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f9">新婦 苗字（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f9" placeholder="例）田中"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f10">新婦 名前（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f10" placeholder="例）花子"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f11">新婦 苗字（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f11" placeholder="例）TANAKA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f12">新婦 名前（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f12" placeholder="例）HANAKO"><div class="char-count">0 / 30</div></div></div><div class="sec-footer"><button class="btn-nav" disabled="">← 前へ</button><button class="btn-submit-float">入稿内容の確認</button><button class="btn-nav btn-nav-next">次へ →</button></div><div class="force-wrap" style="text-align: center; padding: 0.6rem 0px;"><button type="button" style="background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; font-size: 12px; color: var(--k); cursor: pointer; font-family: &quot;Noto Sans JP&quot;, sans-serif; text-decoration: underline;">管理者用</button></div></div><div class="sec-block" id="sec13"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【新郎パート】</div></div><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="field"><div class="field-note">ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。</div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">幼少シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">学生シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">社会人シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div></div></div>
+  <div class="form-body" id="form-body"><div class="sec-block active" id="sec1"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【基本情報】</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f2">挙式日</label><span class="badge-opt">任意</span></div><input type="date" id="f2"></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f3">式場名</label><span class="badge-opt">任意</span></div><div class="field-hint">正式名称でご入力ください</div><input type="text" id="f3" placeholder="例）〇〇グランドホテル ウェディングホール"><div class="char-count">0 / 80</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f4">メールアドレス</label><span class="badge-opt">任意</span></div><div class="field-hint">お客様のメールアドレスをご入力ください</div><input type="email" id="f4" placeholder="例）example@gmail.com"></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f5">新郎 苗字（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f5" placeholder="例）山田"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f6">新郎 名前（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f6" placeholder="例）太郎"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f7">新郎 苗字（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f7" placeholder="例）YAMADA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f8">新郎 名前（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f8" placeholder="例）TARO"><div class="char-count">0 / 30</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f9">新婦 苗字（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f9" placeholder="例）田中"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f10">新婦 名前（漢字）</label><span class="badge-opt">任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f10" placeholder="例）花子"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f11">新婦 苗字（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f11" placeholder="例）TANAKA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f12">新婦 名前（ローマ字）</label><span class="badge-opt">任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f12" placeholder="例）HANAKO"><div class="char-count">0 / 30</div></div></div><div class="sec-footer"><button class="btn-nav" disabled="">← 前へ</button><button class="btn-submit-float">入稿内容の確認</button><button class="btn-nav btn-nav-next">次へ →</button></div><div class="force-wrap" style="text-align: center; padding: 0.6rem 0px;"><button type="button" style="background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; font-size: 12px; color: var(--k); cursor: pointer; font-family: &quot;Noto Sans JP&quot;, sans-serif; text-decoration: underline;">管理者用</button></div></div><div class="sec-block" id="sec13"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【新郎パート】</div></div><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="field"><div class="field-note">ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。</div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">幼少シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="幼少シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">学生シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="学生シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr"><div class="sub-bar"></div><div class="sub-label">社会人シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="社会人シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div></div></div>
 </div>
 <div id="success-screen">
   <div class="success-icon">✓</div>
@@ -406,7 +432,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.0.9';
+const _FORM_VERSION = 'v1.1.0';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1049,7 +1075,8 @@ function parseCropRatio(s) {
 }
 
 function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
-  const grp = document.createElement('div'); grp.className = 'block-grp';
+  const subId = subHdr?.querySelector('.sub-label')?.textContent || subPrefix || ('grp_' + Math.random().toString(36).slice(2,7));
+  const grp = document.createElement('div'); grp.className = 'block-grp'; grp.dataset.subId = subId;
 
   function makeItem(idx) {
     _blkCnt++;
@@ -2213,8 +2240,8 @@ function updateLoginUI(user) {
     const formScreen = document.getElementById('form-screen');
     if (formScreen) {
       formScreen.style.setProperty('display', 'block', 'important');
-      // フォーム表示後にTEMP画像を復元
-      setTimeout(() => restoreTempImages(user.uid), 800);
+      // Firestore復元後（ブロック生成完了を待って）TEMP画像を復元
+      setTimeout(() => restoreTempImages(user.uid), 1500);
     }
   } else {
     // 未ログイン → ゲートを表示・フォームを非表示・内容をクリア
