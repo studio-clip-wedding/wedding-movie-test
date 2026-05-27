@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.3.1 -->
+<!-- FORM VERSION: v1.3.2 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -297,7 +297,10 @@ body{padding-top:40px}
         console.log('Firestore保存:', Object.keys(snapshot).length + '件 ブロック:', blockCounts);
       } catch(e) { console.warn('Firestore保存エラー:', e); }
     };
+    let _firestoreRestored = false;
     window._restoreFromFirestore = async function(uid) {
+      if (_firestoreRestored) return;
+      _firestoreRestored = true;
       try {
         const snap = await getDoc(doc(db, 'formData', uid, 'draft', 'data'));
         if (!snap.exists()) return;
@@ -339,7 +342,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.3.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.3.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -453,7 +456,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.3.1';
+const _FORM_VERSION = 'v1.3.2';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2302,6 +2305,8 @@ function updateLoginUI(user) {
     if (userName)  userName.textContent    = '';
     const formScreen = document.getElementById('form-screen');
     if (formScreen) formScreen.style.setProperty('display', 'none', 'important');
+    _tempImagesRestored = false;  // ログアウト時にリセット
+    if (typeof _firestoreRestored !== 'undefined') _firestoreRestored = false;
     document.querySelectorAll('#form-screen input, #form-screen select, #form-screen textarea').forEach(el => {
       if (el.type === 'checkbox' || el.type === 'radio') el.checked = false;
       else el.value = '';
@@ -2317,8 +2322,11 @@ window._updateLoginUI = (user) => {
 };
 
 // ========== TEMP画像復元（ログイン時） ==========
+let _tempImagesRestored = false;
 async function restoreTempImages(uid) {
-  if (!window._gasUrl || !window._tempFolderId) return;
+  if (_tempImagesRestored) return;
+  _tempImagesRestored = true;
+  if (!window._gasUrl || !window._tempFolderId) { _tempImagesRestored = false; return; }
   try {
     const res = await fetch(window._gasUrl, {
       method: 'POST',
