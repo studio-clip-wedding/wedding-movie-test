@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.3.3 -->
+<!-- FORM VERSION: v1.3.5 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -277,22 +277,8 @@ body{padding-top:40px}
           const count = grp.querySelectorAll('.block-item').length;
           if (subId && count > 0) blockCounts[subId] = count;
         });
-        // fieldId→{subId, blockIndex, fieldLabel}のマッピングを保存
-        const fieldMap = {};
-        document.querySelectorAll('.block-grp').forEach(grp => {
-          const subId = grp.dataset.subId;
-          grp.querySelectorAll('.block-item').forEach((item, blockIdx) => {
-            item.querySelectorAll('.file-list').forEach(list => {
-              const wrap = list.closest('.file-wrap');
-              const inp  = wrap?.querySelector('input[type=file]');
-              // ラベルを取得（file-wrapの親の.fieldからlabel.field-lblを取得）
-              const fieldLabel = wrap?.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || '';
-              if (inp?.id) fieldMap[inp.id] = { subId, blockIndex: blockIdx, fieldLabel };
-            });
-          });
-        });
         await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
-          fields: snapshot, blockCounts, fieldMap, updatedAt: new Date().toISOString()
+          fields: snapshot, blockCounts, updatedAt: new Date().toISOString()
         });
         console.log('Firestore保存:', Object.keys(snapshot).length + '件 ブロック:', blockCounts);
       } catch(e) { console.warn('Firestore保存エラー:', e); }
@@ -307,13 +293,14 @@ body{padding-top:40px}
         const data = snap.data();
         const fields = data.fields || data.basic || {};
 
-        // ブロック数を先に復元
+        // ブロック数を先に復元（フォームの表示順で処理）
         if (data.blockCounts) {
           console.log('ブロック数復元開始:', data.blockCounts);
-          Object.entries(data.blockCounts).forEach(([subId, count]) => {
-            const grp = document.querySelector('.block-grp[data-sub-id="' + subId + '"]');
-            console.log('subId:', subId, '→ grp:', grp ? '見つかった' : 'null', 'count:', count);
-            if (!grp) return;
+          document.querySelectorAll('.block-grp').forEach(grp => {
+            const subId = grp.dataset.subId;
+            const count = data.blockCounts[subId];
+            if (!count) return;
+            console.log('subId:', subId, '→ grp: 見つかった count:', count);
             const addBtn = grp.querySelector('.block-add');
             if (!addBtn) return;
             const current = grp.querySelectorAll('.block-item').length;
@@ -342,7 +329,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.3.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.3.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -350,7 +337,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -456,7 +443,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.3.3';
+const _FORM_VERSION = 'v1.3.5';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1131,7 +1118,12 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
         }
       }
       const field = makeField(Object.assign({}, cloned, { fi: cloned._id, resolvedPrefix }));
-      if (resolvedPrefix) field._resolvedPrefix = resolvedPrefix;
+      if (resolvedPrefix) {
+        field._resolvedPrefix = resolvedPrefix;
+        // file-wrap要素にもセット
+        const fileWrap = field.querySelector('.file-wrap');
+        if (fileWrap) fileWrap._resolvedPrefix = resolvedPrefix;
+      }
       item.appendChild(field);
     });
     // drag
@@ -2166,28 +2158,23 @@ async function doTempSave() {
   const files = [];
   document.querySelectorAll('.file-list').forEach(list => {
     list.querySelectorAll('.file-item').forEach(item => {
-      if (!item._blob || !item._fieldId) return;
-
-      // 保存済みのものはスキップ
-      if (item._tempSaved) {
-        // マットも確認
-        const idTrigger = list.closest('.field')?.querySelector('.id-trigger-btn');
-        if (idTrigger?._idBlob && idTrigger._tempSaved) return;
-        if (!idTrigger?._idBlob) return;
-      }
+      if (!item._blob || !item._resolvedPrefix) return;
 
       const ext      = item._blob.type.includes('video') ? '.mp4' : '.jpg';
-      const fileName = item._fieldId + ext;
+      const prefix   = item._resolvedPrefix;
+      const fileName = prefix + ext;  // RA01.jpg など
+
+      // 通常ファイル（未保存のみ）
       if (!item._tempSaved) {
-        files.push({ fieldId: item._fieldId, fileName, blobRef: item._blob,
+        files.push({ fieldId: prefix, fileName, blobRef: item._blob,
           mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
       }
 
       // マットも収集（未保存のみ）
       const idTrigger = list.closest('.file-wrap')?.querySelector('.id-trigger-btn');
       if (idTrigger?._idBlob && !idTrigger._tempSaved) {
-        const mattoName = item._fieldId + '_matto.png';
-        files.push({ fieldId: item._fieldId + '_matto', fileName: mattoName,
+        const mattoName = prefix + '_matto.png';
+        files.push({ fieldId: prefix + '_matto', fileName: mattoName,
           blobRef: idTrigger._idBlob, mimeType: 'image/png', isMatto: true, base64: null });
       }
     });
@@ -2224,12 +2211,12 @@ async function doTempSave() {
       showTempSaveIndicator(false, true);
       // 保存済みフラグをセット
       document.querySelectorAll('.file-item').forEach(item => {
-        if (item._fieldId && validFiles.some(f => f.fieldId === item._fieldId)) {
+        if (item._resolvedPrefix && validFiles.some(f => f.fieldId === item._resolvedPrefix)) {
           item._tempSaved = true;
         }
       });
       document.querySelectorAll('.id-trigger-btn').forEach(btn => {
-        if (btn._idBlob && validFiles.some(f => f.isMatto && f.fieldId.startsWith(btn._parentFieldId || ''))) {
+        if (btn._idBlob && validFiles.some(f => f.isMatto && f.fieldId.includes(btn._parentPrefix || ''))) {
           btn._tempSaved = true;
         }
       });
@@ -2339,50 +2326,21 @@ async function restoreTempImages(uid) {
     const result = await res.json();
     if (result.status !== 'ok' || !result.files?.length) return;
 
-    // fieldIdをキーにしてファイルをマップ化
+    // fieldIdをキーにしてファイルをマップ化（fieldId = resolvedPrefix）
     const fileMap = {};
     result.files.forEach(f => { fileMap[f.fieldId] = f; });
 
-    // FirestoreのfieldMapを取得（subId + blockIndexで正しいフィールドを特定）
-    let firestoreFieldMap = {};
-    try {
-      const { getFirestore, doc, getDoc } = window._fb;
-      const db   = getFirestore ? getFirestore() : null;
-      if (db) {
-        const snap = await window._fb.getDoc(window._fb.doc(
-          window._fb.db || getFirestore(),
-          'formData', uid, 'draft', 'data'
-        ));
-        if (snap.exists()) firestoreFieldMap = snap.data().fieldMap || {};
-      }
-    } catch(e) { console.warn('fieldMap取得エラー:', e); }
-
-    // fieldMap: { fieldId → { subId, blockIndex, fieldLabel } } を逆引き
-    // { subId_blockIndex_fieldLabel → fieldId } のマップを作成
-    const subBlockToFieldId = {};
-    Object.entries(firestoreFieldMap).forEach(([fid, info]) => {
-      const key = info.subId + '_' + info.blockIndex + '_' + (info.fieldLabel || '');
-      subBlockToFieldId[key] = fid;
-    });
-
-    // 現在のフォームのfile-listをsubId+blockIndex+fieldLabelで識別して復元
-    document.querySelectorAll('.block-grp').forEach(grp => {
-      const subId = grp.dataset.subId;
-      grp.querySelectorAll('.block-item').forEach((blockItem, blockIdx) => {
-        blockItem.querySelectorAll('.file-list').forEach(list => {
-          const wrap       = list.closest('.file-wrap');
-          const inp        = wrap?.querySelector('input[type=file]');
-          const curFieldId = inp?.id;
-          if (!curFieldId) return;
-
-          // fieldLabelを取得
-          const fieldLabel = wrap?.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || '';
-
-          // 保存時のfieldIdをsubId+blockIndex+fieldLabelから逆引き
-          const key = subId + '_' + blockIdx + '_' + fieldLabel;
-          const savedFieldId = subBlockToFieldId[key] || curFieldId;
-          const f = fileMap[savedFieldId];
-          if (!f) return;
+    // Firestoreのfieldマッピングは不要（resolvedPrefixで直接照合）
+    // 各file-listのresolvedPrefixとTEMPのfileIdを照合して復元
+    document.querySelectorAll('.file-list').forEach(list => {
+      const wrap   = list.closest('.file-wrap');
+      const inp    = wrap?.querySelector('input[type=file]');
+      if (!inp) return;
+      // file-wrapの_resolvedPrefixを取得
+      const prefix = wrap._resolvedPrefix || inp._resolvedPrefix;
+      if (!prefix || !fileMap[prefix]) return;
+      const fieldId = inp.id;
+      const f = fileMap[prefix];
 
       // Base64からBlobを生成
       const byteChars = atob(f.base64);
@@ -2396,7 +2354,8 @@ async function restoreTempImages(uid) {
       const item = document.createElement('div');
       item.className  = 'file-item';
       item._blob      = blob;
-      item._fieldId   = curFieldId;  // 現在のfieldIdをセット
+      item._resolvedPrefix = prefix;  // resolvedPrefixをセット
+      item._fieldId   = fieldId;
       item._tempSaved = true;
 
       const del = document.createElement('button');
@@ -2404,7 +2363,7 @@ async function restoreTempImages(uid) {
       del.onclick = () => {
         list.innerHTML = '';
         if (wrap) unlockPair(wrap);
-        setTimeout(() => triggerTempDelete(savedFieldId), 500);
+        setTimeout(() => triggerTempDelete(prefix), 500);
       };
 
       if (blob.type.startsWith('image/')) {
@@ -2425,7 +2384,7 @@ async function restoreTempImages(uid) {
       list.appendChild(item);
 
       // マットも復元（savedFieldId + '_matto' で検索）
-      const mattoKey  = savedFieldId + '_matto';
+      const mattoKey  = prefix + '_matto';
       const mattoFile = fileMap[mattoKey];
       console.log('マット検索:', mattoKey, '→', mattoFile ? '見つかった' : 'なし');
       if (mattoFile) {
@@ -2496,9 +2455,7 @@ async function restoreTempImages(uid) {
           idTrigger.after(idDelBtn);
         }
       }
-        }); // file-list forEach
-      }); // block-item forEach
-    }); // block-grp forEach
+    }); // file-list forEach
 
     console.log('TEMP画像復元完了: ' + result.files.length + '件');
   } catch(e) {
