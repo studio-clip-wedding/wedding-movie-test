@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.4.8 -->
+<!-- FORM VERSION: v1.4.9 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -336,7 +336,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.9</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -450,7 +450,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.4.8';
+const _FORM_VERSION = 'v1.4.9';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1129,7 +1129,10 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
         field._resolvedPrefix = resolvedPrefix;
         // file-wrap要素にもセット
         const fileWrap = field.querySelector('.file-wrap');
-        if (fileWrap) fileWrap._resolvedPrefix = resolvedPrefix;
+        if (fileWrap) {
+          fileWrap._resolvedPrefix = resolvedPrefix;
+          fileWrap._withIdentification = !!cloned.withIdentification;
+        }
       }
       item.appendChild(field);
     });
@@ -2126,21 +2129,89 @@ function resetTempSavedInBlock(blockItem) {
   blockItem.querySelectorAll('.id-trigger-btn').forEach(btn => { btn._tempSaved = false; });
 }
 
-// 2つのブロック間でresolvedPrefixを入れ替え
+// 2つのブロック間でresolvedPrefixとマットデータを入れ替え
 function swapResolvedPrefix(blockA, blockB) {
   const wrapsA = Array.from(blockA.querySelectorAll('.file-wrap'));
   const wrapsB = Array.from(blockB.querySelectorAll('.file-wrap'));
   wrapsA.forEach((wrapA, i) => {
     const wrapB = wrapsB[i];
     if (!wrapA || !wrapB) return;
+
+    // resolvedPrefixを入れ替え
     const prefixA = wrapA._resolvedPrefix;
     const prefixB = wrapB._resolvedPrefix;
     wrapA._resolvedPrefix = prefixB;
     wrapB._resolvedPrefix = prefixA;
+
     // file-itemにも反映
-    wrapA.querySelectorAll('.file-item').forEach(item => { item._resolvedPrefix = prefixB; });
-    wrapB.querySelectorAll('.file-item').forEach(item => { item._resolvedPrefix = prefixA; });
+    wrapA.querySelectorAll('.file-item').forEach(item => { item._resolvedPrefix = prefixB; item._tempSaved = false; });
+    wrapB.querySelectorAll('.file-item').forEach(item => { item._resolvedPrefix = prefixA; item._tempSaved = false; });
+
+    // マットデータも入れ替え
+    const triggerA = wrapA.querySelector('.id-trigger-btn');
+    const triggerB = wrapB.querySelector('.id-trigger-btn');
+    if (triggerA && triggerB) {
+      const blobA  = triggerA._idBlob;
+      const nameA  = triggerA._idName;
+      const savedA = triggerA._tempSaved;
+      triggerA._idBlob    = triggerB._idBlob;
+      triggerA._idName    = triggerB._idName;
+      triggerA._tempSaved = false;
+      triggerB._idBlob    = blobA;
+      triggerB._idName    = nameA;
+      triggerB._tempSaved = false;
+
+      // バッジの表示も更新
+      updateIdBadge(wrapA, triggerA);
+      updateIdBadge(wrapB, triggerB);
+    }
   });
+}
+
+// 人物特定バッジの表示を更新
+function updateIdBadge(wrap, idTrigger) {
+  const list = wrap.querySelector('.file-list');
+  if (!list) return;
+  // 既存バッジと削除ボタンを削除
+  list.querySelectorAll('.id-badge').forEach(b => b.remove());
+  wrap.querySelectorAll('.id-del-btn').forEach(b => b.remove());
+
+  if (idTrigger._idBlob) {
+    // バッジを追加
+    const thumb = list.querySelector('img.crop-thumb');
+    if (thumb) {
+      const badge = document.createElement('div');
+      badge.className = 'id-badge';
+      badge.textContent = '特定済';
+      badge.style.cssText = "position:absolute;top:2px;left:2px;background:#8B7355;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;font-family:'Noto Sans JP',sans-serif;pointer-events:none;";
+      if (!thumb.parentNode.style.position) {
+        const thumbWrap = document.createElement('div');
+        thumbWrap.style.cssText = 'position:relative;display:inline-block;flex-shrink:0;';
+        thumb.parentNode.insertBefore(thumbWrap, thumb);
+        thumbWrap.appendChild(thumb);
+        thumbWrap.appendChild(badge);
+      } else {
+        thumb.parentNode.appendChild(badge);
+      }
+    }
+    idTrigger.textContent = '再特定';
+    const idDelBtn = document.createElement('button');
+    idDelBtn.className = 'id-del-btn';
+    idDelBtn.textContent = '人物特定を削除';
+    idDelBtn.type = 'button';
+    idDelBtn.style.cssText = "margin-top:4px;width:100%;background:var(--w);color:var(--a);border:.5px solid var(--a);border-radius:var(--r);padding:7px 0;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;";
+    idDelBtn.onclick = () => {
+      idTrigger._idBlob = null; idTrigger._idName = null;
+      idTrigger.textContent = '人物特定';
+      idDelBtn.remove();
+      const b2 = list.querySelector('.id-badge');
+      if (b2) b2.remove();
+      setTimeout(() => triggerTempSave(), 500);
+    };
+    idTrigger.after(idDelBtn);
+  } else {
+    idTrigger.textContent = '人物特定';
+  }
 }
 
 // ===== TEMP自動保存 =====
@@ -2421,6 +2492,21 @@ async function restoreTempImages(uid) {
       item.appendChild(size);
       item.appendChild(del);
       list.appendChild(item);
+
+      // 人物特定ボタンを追加（withIdentificationフラグがある場合）
+      if (wrap._withIdentification && !wrap.querySelector('.id-trigger-btn')) {
+        const idTrigger = document.createElement('button');
+        idTrigger.className = 'id-trigger-btn';
+        idTrigger.type = 'button';
+        idTrigger.textContent = '人物特定';
+        idTrigger.style.cssText = "margin-top:6px;width:100%;background:var(--a);color:var(--w);border:none;border-radius:var(--r);padding:7px 0;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;";
+        idTrigger.onclick = () => { window._idTargetTrigger = idTrigger; openIdentification(blob, idBlob => {
+          idTrigger._idBlob  = idBlob;
+          idTrigger._tempSaved = false;
+          setTimeout(() => triggerTempSave(), 500);
+        }); };
+        list.appendChild(idTrigger);
+      }
 
       // マットも復元（savedFieldId + '_matto' で検索）
       const mattoKey  = fieldId + '_matto';
