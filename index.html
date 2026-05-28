@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.4.0 -->
+<!-- FORM VERSION: v1.4.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -270,15 +270,22 @@ body{padding-top:40px}
           const lbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
           if (lbl && el.value && el.value !== '') snapshot[lbl] = el.value;
         });
-        // ブロック数を保存（block-grpごとのブロック数）
+        // ブロック数と順序を保存
         const blockCounts = {};
+        const blockOrder  = {};  // { subId: ['RA01','RA02',...] }
         document.querySelectorAll('.block-grp').forEach(grp => {
           const subId = grp.dataset.subId;
-          const count = grp.querySelectorAll('.block-item').length;
-          if (subId && count > 0) blockCounts[subId] = count;
+          const items = grp.querySelectorAll('.block-item');
+          if (subId && items.length > 0) {
+            blockCounts[subId] = items.length;
+            blockOrder[subId]  = Array.from(items).map(item => {
+              const fw = item.querySelector('.file-wrap');
+              return fw?._resolvedPrefix || '';
+            }).filter(Boolean);
+          }
         });
         await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
-          fields: snapshot, blockCounts, updatedAt: new Date().toISOString()
+          fields: snapshot, blockCounts, blockOrder, updatedAt: new Date().toISOString()
         });
         console.log('Firestore保存:', Object.keys(snapshot).length + '件 ブロック:', blockCounts);
       } catch(e) { console.warn('Firestore保存エラー:', e); }
@@ -329,7 +336,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -443,7 +450,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.4.0';
+const _FORM_VERSION = 'v1.4.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2330,22 +2337,37 @@ async function restoreTempImages(uid) {
     const fileMap = {};
     result.files.forEach(f => { fileMap[f.fieldId] = f; });
 
-    // Firestoreのfieldマッピングは不要（resolvedPrefixで直接照合）
-    // 各file-listのresolvedPrefixとTEMPのfileIdを照合して復元
-    document.querySelectorAll('.file-list').forEach(list => {
-      const wrap   = list.closest('.file-wrap');
-      const inp    = wrap?.querySelector('input[type=file]');
-      if (!inp) return;
-      const prefix = wrap._resolvedPrefix || inp._resolvedPrefix;
-      if (!prefix || !fileMap[prefix]) return;
+    // FirestoreからblockOrderを取得
+    let blockOrder = {};
+    try {
+      const snap = await window._fb.getDoc(
+        window._fb.doc(window._fb.db, 'formData', uid, 'draft', 'data')
+      );
+      if (snap.exists()) blockOrder = snap.data().blockOrder || {};
+    } catch(e) { console.warn('blockOrder取得エラー:', e); }
 
-      const f = fileMap[prefix];
-      // ファイルタイプとフィールドタイプを照合（画像は画像フィールドのみ、動画は動画フィールドのみ）
-      const isVideoField = inp.accept && inp.accept.includes('video');
-      const isVideoFile  = f.mimeType && f.mimeType.includes('video');
-      if (isVideoField !== isVideoFile) return;  // タイプ不一致はスキップ
+    // blockOrderを使って各ブロックのfile-listに正しいprefixを紐づけて復元
+    document.querySelectorAll('.block-grp').forEach(grp => {
+      const subId  = grp.dataset.subId;
+      const order  = blockOrder[subId] || [];
+      const blockItems = Array.from(grp.querySelectorAll('.block-item'));
 
-      const fieldId = inp.id;
+      blockItems.forEach((blockItem, blockIdx) => {
+        blockItem.querySelectorAll('.file-list').forEach(list => {
+          const wrap = list.closest('.file-wrap');
+          const inp  = wrap?.querySelector('input[type=file]');
+          if (!inp) return;
+
+          // blockOrderのblockIdx番目のprefixを使用（なければwrapの_resolvedPrefix）
+          const prefix = order[blockIdx] || wrap._resolvedPrefix || inp._resolvedPrefix;
+          if (!prefix || !fileMap[prefix]) return;
+
+          const f = fileMap[prefix];
+          const isVideoField = inp.accept && inp.accept.includes('video');
+          const isVideoFile  = f.mimeType && f.mimeType.includes('video');
+          if (isVideoField !== isVideoFile) return;
+
+          const fieldId = inp.id;
 
       // Base64からBlobを生成
       const byteChars = atob(f.base64);
@@ -2460,7 +2482,9 @@ async function restoreTempImages(uid) {
           idTrigger.after(idDelBtn);
         }
       }
-    }); // file-list forEach
+        }); // file-list forEach
+      }); // block-item forEach
+    }); // block-grp forEach
 
     console.log('TEMP画像復元完了: ' + result.files.length + '件');
   } catch(e) {
