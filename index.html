@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.4.5 -->
+<!-- FORM VERSION: v1.4.6 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -336,7 +336,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.4.6</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -344,7 +344,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--f); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -450,7 +450,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.4.5';
+const _FORM_VERSION = 'v1.4.6';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2197,7 +2197,8 @@ async function doTempSave() {
         const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
 
         if (!item._tempSaved) {
-          files.push({ fieldId, fileName, blobRef: item._blob,
+          if (!item._tempId) item._tempId = fieldId;  // 一意IDを付与
+          files.push({ fieldId, fileName, blobRef: item._blob, _item: item,
             mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
         }
 
@@ -2206,7 +2207,8 @@ async function doTempSave() {
         if (idTrigger?._idBlob && !idTrigger._tempSaved) {
           const mattoName = subId + '_' + (blockIdx + 1) + '_' + fieldLabel + '_matto.png';
           files.push({ fieldId: fieldId + '_matto', fileName: mattoName,
-            blobRef: idTrigger._idBlob, mimeType: 'image/png', isMatto: true, base64: null });
+            blobRef: idTrigger._idBlob, _trigger: idTrigger,
+            mimeType: 'image/png', isMatto: true, base64: null });
         }
       });
     });
@@ -2244,16 +2246,10 @@ async function doTempSave() {
     const result = await res.json();
     if (result.status === 'ok') {
       showTempSaveIndicator(false, true);
-      // 保存済みフラグをセット（送信したファイルのみ）
-      validFiles.forEach(vf => {
-        document.querySelectorAll('.file-item').forEach(item => {
-          if (!vf.isMatto && item._blob === vf._blobRef) item._tempSaved = true;
-        });
-        if (vf.isMatto) {
-          document.querySelectorAll('.id-trigger-btn').forEach(btn => {
-            if (btn._idBlob === vf._blobRef) btn._tempSaved = true;
-          });
-        }
+      // 保存したファイルのDOM要素に直接フラグをセット
+      validFiles.forEach(f => {
+        if (f._item)    f._item._tempSaved    = true;
+        if (f._trigger) f._trigger._tempSaved = true;
       });
     } else showTempSaveIndicator(false, false);
   } catch(e) {
