@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.5.0 -->
+<!-- FORM VERSION: v1.5.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -301,16 +301,13 @@ body{padding-top:40px}
 
         // ブロック数を先に復元（フォームの表示順で処理）
         if (data.blockCounts) {
-          console.log('ブロック数復元開始:', data.blockCounts);
-          document.querySelectorAll('.block-grp').forEach(grp => {
+              document.querySelectorAll('.block-grp').forEach(grp => {
             const subId = grp.dataset.subId;
             const count = data.blockCounts[subId];
             if (!count) return;
-            console.log('subId:', subId, '→ grp: 見つかった count:', count);
             const addBtn = grp.querySelector('.block-add');
             if (!addBtn) return;
             const current = grp.querySelectorAll('.block-item').length;
-            console.log('現在のブロック数:', current, '→ 目標:', count);
             for (let i = current; i < count; i++) addBtn.click();
           });
           // ブロック生成を待ってからテキスト復元
@@ -332,7 +329,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.5.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.5.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -446,7 +443,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.5.0';
+const _FORM_VERSION = 'v1.5.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2146,21 +2143,18 @@ function swapResolvedPrefix(blockA, blockB) {
     // マットデータも入れ替え
     const triggerA = wrapA.querySelector('.id-trigger-btn');
     const triggerB = wrapB.querySelector('.id-trigger-btn');
-    if (triggerA && triggerB) {
-      const blobA  = triggerA._idBlob;
-      const nameA  = triggerA._idName;
-      const savedA = triggerA._tempSaved;
-      triggerA._idBlob    = triggerB._idBlob;
-      triggerA._idName    = triggerB._idName;
-      triggerA._tempSaved = false;
-      triggerB._idBlob    = blobA;
-      triggerB._idName    = nameA;
-      triggerB._tempSaved = false;
 
-      // バッジの表示も更新
-      updateIdBadge(wrapA, triggerA);
-      updateIdBadge(wrapB, triggerB);
-    }
+    const blobA  = triggerA?._idBlob  || null;
+    const nameA  = triggerA?._idName  || null;
+    const blobB  = triggerB?._idBlob  || null;
+    const nameB  = triggerB?._idName  || null;
+
+    if (triggerA) { triggerA._idBlob = blobB; triggerA._idName = nameB; triggerA._tempSaved = false; }
+    if (triggerB) { triggerB._idBlob = blobA; triggerB._idName = nameA; triggerB._tempSaved = false; }
+
+    // バッジの表示も更新
+    if (triggerA) updateIdBadge(wrapA, triggerA);
+    if (triggerB) updateIdBadge(wrapB, triggerB);
   });
 }
 
@@ -2507,7 +2501,6 @@ async function restoreTempImages(uid) {
       // マットも復元（savedFieldId + '_matto' で検索）
       const mattoKey  = fieldId + '_matto';
       const mattoFile = fileMap[mattoKey];
-      console.log('マット検索:', mattoKey, '→', mattoFile ? '見つかった' : 'なし');
       if (mattoFile) {
         const mf       = mattoFile;
         const mBytes   = atob(mf.base64);
