@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.5.2 -->
+<!-- FORM VERSION: v1.5.3 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -328,7 +328,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.5.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.5.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -442,7 +442,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.5.2';
+const _FORM_VERSION = 'v1.5.3';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1097,9 +1097,9 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
     const num = document.createElement('span'); num.className = 'block-num'; num.textContent = (idx+1) + '枚目'; hdr.appendChild(num);
     const btnWrap = document.createElement('div'); btnWrap.style.cssText = 'display:flex;gap:4px;align-items:center';
     const upBtn = document.createElement('button'); upBtn.className = 'block-move'; upBtn.textContent = '▲'; upBtn.type = 'button';
-    upBtn.onclick = () => { const prev = item.previousElementSibling; if(prev&&prev.classList.contains('block-item')){grp.insertBefore(item,prev);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,prev);resetTempSavedInBlock(item);resetTempSavedInBlock(prev);triggerFirestoreSave();clearTimeout(_tempSaveTimer);setTimeout(()=>doTempSave(),500);} };
+    upBtn.onclick = () => { const prev = item.previousElementSibling; if(prev&&prev.classList.contains('block-item')){grp.insertBefore(item,prev);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,prev);triggerFirestoreSave();triggerTempSwap(item,prev);} };
     const downBtn = document.createElement('button'); downBtn.className = 'block-move'; downBtn.textContent = '▼'; downBtn.type = 'button';
-    downBtn.onclick = () => { const next = item.nextElementSibling; if(next&&next.classList.contains('block-item')){grp.insertBefore(next,item);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,next);resetTempSavedInBlock(item);resetTempSavedInBlock(next);triggerFirestoreSave();clearTimeout(_tempSaveTimer);setTimeout(()=>doTempSave(),500);} };
+    downBtn.onclick = () => { const next = item.nextElementSibling; if(next&&next.classList.contains('block-item')){grp.insertBefore(next,item);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,next);triggerFirestoreSave();triggerTempSwap(next,item);} };
     const del = document.createElement('button'); del.className = 'block-del'; del.textContent = '削除'; del.type = 'button';
     del.onclick = () => { item.remove(); renumber(grp, cfg, subHdr); updateAdd(addBtn, grp, cfg, subHdr); };
     btnWrap.appendChild(upBtn); btnWrap.appendChild(downBtn); btnWrap.appendChild(del);
@@ -2200,6 +2200,43 @@ function updateIdBadge(wrap, idTrigger) {
     idTrigger.after(idDelBtn);
   } else {
     idTrigger.textContent = '人物特定';
+  }
+}
+
+// ===== TEMPスワップ（並び替え時） =====
+async function triggerTempSwap(blockA, blockB) {
+  const user = window._currentUser;
+  if (!user || !window._gasUrl || !window._tempFolderId) return;
+
+  // 各ブロックのkeyを取得（位置ベース：subId_blockIdx_fieldLabel）
+  const grp   = blockA.closest('.block-grp');
+  const subId = grp?.dataset.subId || 'grp';
+  const items = Array.from(grp?.querySelectorAll('.block-item') || []);
+  const idxA  = items.indexOf(blockA);
+  const idxB  = items.indexOf(blockB);
+  if (idxA === -1 || idxB === -1) return;
+
+  // スワップ前のキー（並び替え後なのでidxが入れ替わっている）
+  // blockAが今いる位置=idxA（並び替え後）、元いた位置=idxBのキーが必要
+  const keyA = subId + '_' + (idxB + 1) + '_写真';  // 元のAのキー
+  const keyB = subId + '_' + (idxA + 1) + '_写真';  // 元のBのキー
+
+  showTempSaveIndicator(true);
+  try {
+    const res = await fetch(window._gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:       'tempSwap',
+        uid:          user.uid,
+        tempFolderId: window._tempFolderId,
+        keyA, keyB,
+      })
+    });
+    const result = await res.json();
+    showTempSaveIndicator(false, result.status === 'ok');
+  } catch(e) {
+    console.warn('TEMPスワップエラー:', e);
+    showTempSaveIndicator(false, false);
   }
 }
 
