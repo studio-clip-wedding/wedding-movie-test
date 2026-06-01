@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.7.1 -->
+<!-- FORM VERSION: v1.7.2 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -30,7 +30,7 @@ html,body{font-family:'Noto Sans JP',sans-serif;font-weight:300;background:var(-
 .drop-zone small{font-size:10px;color:var(--f);display:block;margin-top:.3rem}
 .upload-note{font-size:11px;color:var(--f);margin-top:1.2rem;line-height:1.7}
 #form-screen{display:none}
-.sticky-wrap{position:sticky;top:0;z-index:200;background:var(--w)}
+.sticky-wrap{position:fixed;top:40px;left:0;right:0;z-index:198;background:var(--w);box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .form-header{background:var(--w);border-bottom:.5px solid var(--b);padding:1.5rem 1.75rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .hamburger-btn{background:none;border:none;cursor:pointer;padding:4px 8px;font-size:20px;color:var(--a);line-height:1;flex-shrink:0}
 .tab-dropdown{display:none;position:absolute;top:100%;left:0;background:var(--w);border:.5px solid var(--b);border-radius:0 0 var(--r) var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:300;min-width:200px;padding:.4rem 0}
@@ -378,11 +378,11 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap">
+  <div class="sticky-wrap" style="top: 72px;">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -410,7 +410,7 @@ body{padding-top:40px}
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap">
+  <div class="sticky-wrap" style="top: 72px;">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -492,7 +492,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.7.1';
+const _FORM_VERSION = 'v1.7.2';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2447,6 +2447,23 @@ function showTempSaveIndicator(saving, success) {
   }
 }
 
+// ===== レイアウト調整（fixed要素の重なり対応） =====
+function adjustLayout() {
+  const loginBarH   = 40;
+  const unsavedBar  = document.getElementById('unsaved-bar');
+  const unsavedH    = (unsavedBar && unsavedBar.classList.contains('visible')) ? unsavedBar.offsetHeight : 0;
+  const stickyTop   = loginBarH + unsavedH;
+
+  document.querySelectorAll('.sticky-wrap').forEach(el => {
+    el.style.top = stickyTop + 'px';
+  });
+
+  // form-bodyのpadding-topをfixed要素の合計高さに合わせる
+  const stickyWrap = document.querySelector('#form-screen .sticky-wrap');
+  const stickyH    = stickyWrap ? stickyWrap.offsetHeight : 0;
+  document.body.style.paddingTop = (loginBarH + unsavedH + stickyH) + 'px';
+}
+
 // ===== 保存バー制御 =====
 let _isDirty = false;
 
@@ -2456,6 +2473,7 @@ function markDirty() {
   const unsavedBar = document.getElementById('unsaved-bar');
   if (btn)        btn.classList.add('dirty');
   if (unsavedBar) unsavedBar.classList.add('visible');
+  adjustLayout();
 }
 
 function markClean() {
@@ -2469,6 +2487,7 @@ function markClean() {
     status.textContent = '✓ 保存済み';
     setTimeout(() => { if (status) status.textContent = ''; }, 2000);
   }
+  adjustLayout();
 }
 
 // ===== 一括保存 =====
@@ -2499,6 +2518,7 @@ function showSaveBar() {
   const bar = document.getElementById('save-bar');
   if (bar) bar.classList.add('visible');
   setupDirtyTracking();
+  adjustLayout();
 }
 
 // ===== ログアウト時に保存バーを非表示 =====
@@ -2508,6 +2528,7 @@ function hideSaveBar() {
 }
 
 // ===== ページ離脱前警告 =====
+window.addEventListener('resize', adjustLayout);
 window.addEventListener('beforeunload', e => {
   if (_isDirty) {
     e.preventDefault();
