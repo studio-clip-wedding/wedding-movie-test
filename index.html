@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.7.0 -->
+<!-- FORM VERSION: v1.7.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -226,7 +226,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 #login-gate .gate-btn img{width:20px;height:20px}
 
 /* ===== 未保存警告バー（ログインバー直下・固定） ===== */
-#unsaved-bar{position:fixed;top:40px;left:0;right:0;background:#c0392b;color:#fff;text-align:center;padding:6px 16px;font-size:12px;font-family:'Noto Sans JP',sans-serif;z-index:199;display:none;letter-spacing:.05em}
+#unsaved-bar{position:fixed;top:40px;left:0;right:0;background:#c0392b;color:#fff;text-align:center;padding:6px 16px;font-size:12px;font-family:'Noto Sans JP',sans-serif;z-index:201;display:none;letter-spacing:.05em}
 #unsaved-bar.visible{display:block}
 
 /* ===== 保存バー（画面下部固定） ===== */
@@ -378,7 +378,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -492,7 +492,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.7.0';
+const _FORM_VERSION = 'v1.7.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
