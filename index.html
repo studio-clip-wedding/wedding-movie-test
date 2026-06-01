@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.6.2 -->
+<!-- FORM VERSION: v1.6.3 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -225,6 +225,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 @keyframes spin{to{transform:rotate(360deg)}}
 #login-gate .gate-btn img{width:20px;height:20px}
 
+/* ===== 未保存警告バー（上部） ===== */
+#unsaved-bar{position:fixed;top:40px;left:0;right:0;background:#c0392b;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-family:'Noto Sans JP',sans-serif;z-index:190;display:none;letter-spacing:.05em}
+#unsaved-bar.visible{display:block}
+
 /* ===== 保存バー（画面下部固定） ===== */
 #save-bar{position:fixed;bottom:0;left:0;right:0;background:var(--s);border-top:1px solid var(--bs);padding:8px 16px;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
 #save-bar.visible{display:flex}
@@ -303,6 +307,7 @@ body{padding-top:40px}
     window._restoreFromFirestore = async function(uid) {
       if (window._firestoreRestored) return;
       window._firestoreRestored = true;
+      window._isRestoring = true;  // 復元中フラグ
       try {
         const snap = await getDoc(doc(db, 'formData', uid, 'draft', 'data'));
         if (!snap.exists()) return;
@@ -334,13 +339,14 @@ body{padding-top:40px}
 
         console.log('Firestoreから復元しました:', Object.keys(fields).length + '件');
       } catch(e) { console.warn('Firestore復元エラー:', e); }
+      finally { window._isRestoring = false; }
     };
   </script>
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.6.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
-<div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.6.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
   <div class="sticky-wrap">
@@ -453,7 +459,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.6.2';
+const _FORM_VERSION = 'v1.6.3';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1150,10 +1156,10 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
     grp.insertBefore(makeItem(n), addBtn);
     renumber(grp, cfg, subHdr);
     updateAdd(addBtn, grp, cfg, subHdr);
-    // 新しいブロックに透明マットを保存（file_idタイプのみ）
-    const subId = grp.dataset.subId || 'grp';
-    const newIdx = grp.querySelectorAll('.block-item').length - 1;
-    if (window._currentUser && window._gasUrl && window._tempFolderId) {
+    // 新しいブロックに透明マットを保存（復元中はスキップ）
+    if (!window._isRestoring && window._currentUser && window._gasUrl && window._tempFolderId) {
+      const subId = grp.dataset.subId || 'grp';
+      const newIdx = grp.querySelectorAll('.block-item').length - 1;
       const mattoKey  = subId + '_' + (newIdx + 1) + '_写真_matto';
       const mattoName = mattoKey + '.png';
       const blob = makeTransparentBlob();
@@ -2466,21 +2472,21 @@ let _isDirty = false;
 
 function markDirty() {
   _isDirty = true;
-  const btn    = document.getElementById('save-btn');
-  const bar    = document.getElementById('save-bar');
-  const status = document.getElementById('save-status');
-  if (btn)    btn.classList.add('dirty');
-  if (bar)    bar.classList.add('visible');
-  if (status) status.textContent = '未保存の変更があります';
+  const btn        = document.getElementById('save-btn');
+  const unsavedBar = document.getElementById('unsaved-bar');
+  if (btn)        btn.classList.add('dirty');
+  if (unsavedBar) unsavedBar.classList.add('visible');
 }
 
 function markClean() {
   _isDirty = false;
-  const btn    = document.getElementById('save-btn');
-  const status = document.getElementById('save-status');
-  if (btn)    btn.classList.remove('dirty');
+  const btn        = document.getElementById('save-btn');
+  const unsavedBar = document.getElementById('unsaved-bar');
+  const status     = document.getElementById('save-status');
+  if (btn)        btn.classList.remove('dirty');
+  if (unsavedBar) unsavedBar.classList.remove('visible');
   if (status) {
-    status.textContent = '保存済み';
+    status.textContent = '✓ 保存済み';
     setTimeout(() => { if (status) status.textContent = ''; }, 2000);
   }
 }
