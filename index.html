@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.7.2 -->
+<!-- FORM VERSION: v1.7.5 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -241,10 +241,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 #form-screen{padding-bottom:60px}
 
 /* ===== ログインバー ===== */
-#login-bar{position:fixed;top:0;left:0;right:0;height:40px;background:var(--s);display:flex;align-items:center;justify-content:flex-end;padding:0 1rem;gap:10px;z-index:200;font-size:12px;color:var(--f);box-shadow:0 1px 4px rgba(0,0,0,.1)}
-#login-bar .user-name{color:var(--f);opacity:.7;font-size:11px}
-#login-btn{padding:4px 14px;border-radius:4px;border:none;background:var(--b);color:#fff;cursor:pointer;font-size:12px}
-#logout-btn{padding:4px 12px;border-radius:4px;border:1px solid var(--b3);background:none;color:var(--b3);cursor:pointer;font-size:12px}
+#login-bar{position:fixed;top:0;left:0;right:0;height:40px;background:var(--w);display:flex;align-items:center;justify-content:flex-end;padding:0 1rem;gap:10px;z-index:200;font-size:12px;color:var(--k);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+#login-bar .user-name{color:var(--m);font-size:11px}
+#login-btn{padding:4px 14px;border-radius:4px;border:none;background:#22C55E;color:#fff;cursor:pointer;font-size:12px}
+#logout-btn{padding:4px 12px;border-radius:4px;border:none;background:#3B82F6;color:#fff;cursor:pointer;font-size:12px}
 body{padding-top:40px}
 </style>
 <script type="module">
@@ -377,8 +377,8 @@ body{padding-top:40px}
   </script>
 </head>
 <body>
-<div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">入稿情報を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.7.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -492,7 +492,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.7.2';
+const _FORM_VERSION = 'v1.7.5';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2437,7 +2437,7 @@ function showTempSaveIndicator(saving, success) {
   const overlay = document.getElementById('temp-save-overlay');
   if (!overlay) return;
   if (saving) {
-    overlay.querySelector('.save-msg').textContent = '素材を保存中...';
+    overlay.querySelector('.save-msg').textContent = '入稿情報を保存中...';
     overlay.querySelector('.save-sub').textContent = 'しばらくお待ちください';
     overlay.classList.add('active');
   } else {
