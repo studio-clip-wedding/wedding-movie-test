@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.5.4 -->
+<!-- FORM VERSION: v1.6.0 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -225,6 +225,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 @keyframes spin{to{transform:rotate(360deg)}}
 #login-gate .gate-btn img{width:20px;height:20px}
 
+/* ===== 保存バー（画面下部固定） ===== */
+#save-bar{position:fixed;bottom:0;left:0;right:0;background:var(--s);border-top:1px solid var(--bs);padding:8px 16px;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+#save-bar.visible{display:flex}
+#save-btn{background:var(--b);color:#fff;border:none;border-radius:6px;padding:10px 32px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.05em;transition:background .2s}
+#save-btn:hover{background:var(--b3)}
+#save-btn.dirty{background:var(--er);animation:pulse .8s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.7}}
+#save-bar .save-status{font-size:11px;color:var(--b3);margin-left:12px}
+/* 保存バー分の余白 */
+#form-screen{padding-bottom:60px}
+
 /* ===== ログインバー ===== */
 #login-bar{position:fixed;top:0;left:0;right:0;height:40px;background:var(--s);display:flex;align-items:center;justify-content:flex-end;padding:0 1rem;gap:10px;z-index:200;font-size:12px;color:var(--f);box-shadow:0 1px 4px rgba(0,0,0,.1)}
 #login-bar .user-name{color:var(--f);opacity:.7;font-size:11px}
@@ -328,7 +339,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.5.4</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.6.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -336,7 +347,7 @@ body{padding-top:40px}
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
-      <span class="autosave-badge" id="save-badge" style="color: var(--a); display: inline;">● 5/23 復元しました</span>
+      <span class="autosave-badge" id="save-badge">● 保存済み</span>
       <button class="btn-submit-float" <button="" onclick="exportForm()">HTMLを書き出す ↓</button>
       <button class="btn btn-accent" id="btn-export-ss" onclick="exportSpreadsheet()" style="">スプレッドシート雛形 ↓</button>
       <button class="btn btn-ghost" onclick="resetAll()">← やり直す</button>
@@ -442,7 +453,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.5.4';
+const _FORM_VERSION = 'v1.6.0';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -645,6 +656,10 @@ function closeTabMenu() {
 }
 
 function showSec(i) {
+  // セクション移動前に保存（_isDirtyの場合）
+  if (typeof _isDirty !== 'undefined' && _isDirty && _curSec !== i) {
+    saveAll(true);  // サイレント保存
+  }
   _curSec = i;
   document.querySelectorAll('.sec-block').forEach(el => el.classList.remove('active'));
   const el = document.getElementById(_secs[i].id); if (el) el.classList.add('active');
@@ -850,7 +865,7 @@ function buildFileField(id, cropRatioStr, withIdentification) {
             item._tempSaved = false;  // 新規追加はフラグリセット
             list.appendChild(item);
             // トリミング確定後にTEMP保存
-            setTimeout(() => triggerTempSave(), 500);
+            markDirty();
             // 人物特定ボタン（file_idタイプのみ表示）
             if (withIdentification) {
               list.querySelectorAll('.id-trigger-btn,.id-result-item').forEach(b => b.remove());
@@ -927,7 +942,7 @@ function buildFileField(id, cropRatioStr, withIdentification) {
             item._tempSaved = false;
             list.appendChild(item);
             // 画像確定後にTEMP保存
-            setTimeout(() => triggerTempSave(), 500);
+            markDirty();
             // 人物特定ボタン（file_idタイプのみ表示）
             if (withIdentification) {
               list.querySelectorAll('.id-trigger-btn,.id-result-item').forEach(b => b.remove());
@@ -1000,7 +1015,7 @@ function buildVideoField(id) {
   zone.appendChild(inp); zone.appendChild(p); wrap.appendChild(zone);
   const list = document.createElement('div'); list.className = 'file-list'; wrap.appendChild(list);
 
-  function clearVid() { inp.value = ''; list.innerHTML = ''; unlockPair(wrap); setTimeout(() => triggerTempSave(), 500); }
+  function clearVid() { inp.value = ''; list.innerHTML = ''; unlockPair(wrap); markDirty(); }
 
   inp.addEventListener('change', () => {
     if (!inp.files[0]) return;
@@ -1018,7 +1033,7 @@ function buildVideoField(id) {
     item._tempSaved = false;
     list.appendChild(item);
     // 動画確定後にTEMP保存
-    setTimeout(() => triggerTempSave(), 500);
+    markDirty();
     lockPair(wrap, '動画が入稿済みのため、写真は入稿できません。動画を削除してください。');
   });
   return wrap;
@@ -1097,9 +1112,9 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
     const num = document.createElement('span'); num.className = 'block-num'; num.textContent = (idx+1) + '枚目'; hdr.appendChild(num);
     const btnWrap = document.createElement('div'); btnWrap.style.cssText = 'display:flex;gap:4px;align-items:center';
     const upBtn = document.createElement('button'); upBtn.className = 'block-move'; upBtn.textContent = '▲'; upBtn.type = 'button';
-    upBtn.onclick = () => { const prev = item.previousElementSibling; if(prev&&prev.classList.contains('block-item')){grp.insertBefore(item,prev);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,prev);triggerFirestoreSave();triggerTempSwap(item,prev);} };
+    upBtn.onclick = () => { const prev = item.previousElementSibling; if(prev&&prev.classList.contains('block-item')){grp.insertBefore(item,prev);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,prev);markDirty();triggerTempSwap(item,prev);} };
     const downBtn = document.createElement('button'); downBtn.className = 'block-move'; downBtn.textContent = '▼'; downBtn.type = 'button';
-    downBtn.onclick = () => { const next = item.nextElementSibling; if(next&&next.classList.contains('block-item')){grp.insertBefore(next,item);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,next);triggerFirestoreSave();triggerTempSwap(next,item);} };
+    downBtn.onclick = () => { const next = item.nextElementSibling; if(next&&next.classList.contains('block-item')){grp.insertBefore(next,item);renumber(grp,cfg,subHdr);updateAdd(addBtn,grp,cfg,subHdr);swapResolvedPrefix(item,next);markDirty();triggerTempSwap(next,item);} };
     const del = document.createElement('button'); del.className = 'block-del'; del.textContent = '削除'; del.type = 'button';
     del.onclick = () => { item.remove(); renumber(grp, cfg, subHdr); updateAdd(addBtn, grp, cfg, subHdr); };
     btnWrap.appendChild(upBtn); btnWrap.appendChild(downBtn); btnWrap.appendChild(del);
@@ -1133,7 +1148,34 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
   }
 
   const addBtn = document.createElement('button'); addBtn.className = 'block-add'; addBtn.type = 'button';
-  addBtn.onclick = () => { const n = grp.querySelectorAll('.block-item').length; if (n >= cfg.max) return; grp.insertBefore(makeItem(n), addBtn); renumber(grp, cfg, subHdr); updateAdd(addBtn, grp, cfg, subHdr); };
+  addBtn.onclick = () => {
+    const n = grp.querySelectorAll('.block-item').length;
+    if (n >= cfg.max) return;
+    grp.insertBefore(makeItem(n), addBtn);
+    renumber(grp, cfg, subHdr);
+    updateAdd(addBtn, grp, cfg, subHdr);
+    // 新しいブロックに透明マットを保存（file_idタイプのみ）
+    const subId = grp.dataset.subId || 'grp';
+    const newIdx = grp.querySelectorAll('.block-item').length - 1;
+    if (window._currentUser && window._gasUrl && window._tempFolderId) {
+      const mattoKey  = subId + '_' + (newIdx + 1) + '_写真_matto';
+      const mattoName = mattoKey + '.png';
+      const blob = makeTransparentBlob();
+      const reader = new FileReader();
+      reader.onload = e => {
+        const base64 = e.target.result.split(',')[1];
+        fetch(window._gasUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'tempSave', uid: window._currentUser.uid,
+            tempFolderId: window._tempFolderId,
+            files: [{ fieldId: mattoKey, fileName: mattoName, base64, mimeType: 'image/png', isMatto: true }]
+          })
+        }).catch(e => console.warn('透明マット保存エラー:', e));
+      };
+      reader.readAsDataURL(blob);
+    }
+  };
 
   for (let i = 0; i < cfg.min; i++) grp.appendChild(makeItem(i));
   grp.appendChild(addBtn);
@@ -2031,7 +2073,7 @@ function idApply() {
     _idCallback = null;
     // 人物特定確定後にTEMP保存（_tempSavedリセット）
     if (window._idTargetTrigger) window._idTargetTrigger._tempSaved = false;
-    setTimeout(() => triggerTempSave(), 500);
+    markDirty();
   }, 'image/png');
 }
 
@@ -2195,7 +2237,7 @@ function updateIdBadge(wrap, idTrigger) {
       idDelBtn.remove();
       const b2 = list.querySelector('.id-badge');
       if (b2) b2.remove();
-      setTimeout(() => triggerTempSave(), 500);
+      markDirty();
     };
     idTrigger.after(idDelBtn);
   } else {
@@ -2208,7 +2250,6 @@ async function triggerTempSwap(blockA, blockB) {
   const user = window._currentUser;
   if (!user || !window._gasUrl || !window._tempFolderId) return;
 
-  // 各ブロックのkeyを取得（位置ベース：subId_blockIdx_fieldLabel）
   const grp   = blockA.closest('.block-grp');
   const subId = grp?.dataset.subId || 'grp';
   const items = Array.from(grp?.querySelectorAll('.block-item') || []);
@@ -2216,28 +2257,41 @@ async function triggerTempSwap(blockA, blockB) {
   const idxB  = items.indexOf(blockB);
   if (idxA === -1 || idxB === -1) return;
 
-  // スワップ前のキー（並び替え後なのでidxが入れ替わっている）
-  // blockAが今いる位置=idxA（並び替え後）、元いた位置=idxBのキーが必要
-  const keyA = subId + '_' + (idxB + 1) + '_写真';  // 元のAのキー
-  const keyB = subId + '_' + (idxA + 1) + '_写真';  // 元のBのキー
+  // 並び替え後の現在位置でキーを決める
+  const keyA = subId + '_' + (idxA + 1) + '_写真';
+  const keyB = subId + '_' + (idxB + 1) + '_写真';
 
   showTempSaveIndicator(true);
   try {
     const res = await fetch(window._gasUrl, {
       method: 'POST',
       body: JSON.stringify({
-        action:       'tempSwap',
-        uid:          user.uid,
+        action: 'tempSwap', uid: user.uid,
         tempFolderId: window._tempFolderId,
         keyA, keyB,
       })
     });
     const result = await res.json();
-    showTempSaveIndicator(false, result.status === 'ok');
+    if (result.status === 'ok') {
+      // スワップ後にマット状態を再取得してバッジを再描画
+      await refreshMattoDisplay(user.uid);
+      showTempSaveIndicator(false, true);
+    } else {
+      showTempSaveIndicator(false, false);
+    }
   } catch(e) {
     console.warn('TEMPスワップエラー:', e);
     showTempSaveIndicator(false, false);
   }
+}
+
+// ===== 透明マット定数 =====
+const TRANSPARENT_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
+const TRANSPARENT_PNG_SIZE = 100;  // これ以下のバイト数は透明マット
+
+function makeTransparentBlob() {
+  const bytes = Uint8Array.from(atob(TRANSPARENT_PNG_B64), c => c.charCodeAt(0));
+  return new Blob([bytes], { type: 'image/png' });
 }
 
 // ===== TEMP自動保存 =====
@@ -2248,7 +2302,7 @@ function triggerTempSave() {
   _tempSaveTimer = setTimeout(() => doTempSave(), 300);
 }
 
-// 画像削除をGASに通知
+// ===== TEMP削除（画像削除時・透明マットで上書き） =====
 async function triggerTempDelete(fieldId) {
   const user = window._currentUser;
   if (!user || !window._gasUrl) return;
@@ -2257,10 +2311,8 @@ async function triggerTempDelete(fieldId) {
     const res = await fetch(window._gasUrl, {
       method: 'POST',
       body: JSON.stringify({
-        action:       'tempDelete',
-        uid:          user.uid,
-        tempFolderId: window._tempFolderId || '',
-        fieldId,
+        action: 'tempDelete', uid: user.uid,
+        tempFolderId: window._tempFolderId || '', fieldId,
       })
     });
     const result = await res.json();
@@ -2271,11 +2323,11 @@ async function triggerTempDelete(fieldId) {
   }
 }
 
+// ===== doTempSave（未保存ファイルをまとめて送信） =====
 async function doTempSave() {
   const user = window._currentUser;
   if (!user || !window._gasUrl) return;
 
-  // 現在の画像ファイルを収集
   const files = [];
   document.querySelectorAll('.block-grp').forEach(grp => {
     const subId = grp.dataset.subId || 'grp';
@@ -2283,27 +2335,24 @@ async function doTempSave() {
       blockItem.querySelectorAll('.file-list').forEach(list => {
         const item = list.querySelector('.file-item');
         if (!item?._blob) return;
-
         const wrap       = list.closest('.file-wrap');
         const inp        = wrap?.querySelector('input[type=file]');
         const isVideo    = inp?.accept?.includes('video');
         const fieldLabel = isVideo ? '動画' : '写真';
         const ext        = item._blob.type.includes('video') ? '.mp4' : '.jpg';
-        // 位置ベースのファイル名（1始まり）
-        const fileName   = subId + '_' + (blockIdx + 1) + '_' + fieldLabel + ext;
         const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
+        const fileName   = fieldId + ext;
 
         if (!item._tempSaved) {
-          if (!item._tempId) item._tempId = fieldId;  // 一意IDを付与
           files.push({ fieldId, fileName, blobRef: item._blob, _item: item,
             mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
         }
 
-        // マットも収集（未保存のみ）
+        // マット（実マット・未保存のみ）
         const idTrigger = wrap?.querySelector('.id-trigger-btn');
         if (idTrigger?._idBlob && !idTrigger._tempSaved) {
-          const mattoName = subId + '_' + (blockIdx + 1) + '_' + fieldLabel + '_matto.png';
-          files.push({ fieldId: fieldId + '_matto', fileName: mattoName,
+          const mattoKey = fieldId + '_matto';
+          files.push({ fieldId: mattoKey, fileName: mattoKey + '.png',
             blobRef: idTrigger._idBlob, _trigger: idTrigger,
             mimeType: 'image/png', isMatto: true, base64: null });
         }
@@ -2313,7 +2362,6 @@ async function doTempSave() {
 
   if (!files.length) return;
 
-  // Base64変換
   await Promise.all(files.map(f => new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => { f.base64 = e.target.result.split(',')[1]; delete f.blobRef; resolve(); };
@@ -2324,26 +2372,19 @@ async function doTempSave() {
   const validFiles = files.filter(f => f.base64);
   if (!validFiles.length) return;
 
-  // blobRefを保存しておく（フラグセット用）
-  validFiles.forEach(f => { f._blobRef = f.blobRef; });
-
-  // スピナー表示
   showTempSaveIndicator(true);
-
   try {
     const res = await fetch(window._gasUrl, {
       method: 'POST',
       body: JSON.stringify({
-        action:       'tempSave',
-        uid:          user.uid,
+        action: 'tempSave', uid: user.uid,
         tempFolderId: window._tempFolderId || '',
-        files:        validFiles,
+        files: validFiles,
       })
     });
     const result = await res.json();
     if (result.status === 'ok') {
       showTempSaveIndicator(false, true);
-      // 保存したファイルのDOM要素に直接フラグをセット
       validFiles.forEach(f => {
         if (f._item)    f._item._tempSaved    = true;
         if (f._trigger) f._trigger._tempSaved = true;
@@ -2352,6 +2393,61 @@ async function doTempSave() {
   } catch(e) {
     console.warn('TEMP保存エラー:', e);
     showTempSaveIndicator(false, false);
+  }
+}
+
+// ===== スワップ後にマット状態を再取得してバッジを再描画 =====
+async function refreshMattoDisplay(uid) {
+  if (!window._gasUrl || !window._tempFolderId) return;
+  try {
+    const res = await fetch(window._gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'tempList', uid,
+        tempFolderId: window._tempFolderId,
+      })
+    });
+    const result = await res.json();
+    if (result.status !== 'ok') return;
+
+    // マットのみ抽出してfieldIdをキーにマップ化
+    const mattoMap = {};
+    result.files.forEach(f => { if (f.isMatto) mattoMap[f.fieldId] = f; });
+
+    // 各ブロックのバッジを再描画
+    document.querySelectorAll('.block-grp').forEach(grp => {
+      const subId = grp.dataset.subId || 'grp';
+      grp.querySelectorAll('.block-item').forEach((blockItem, blockIdx) => {
+        blockItem.querySelectorAll('.file-list').forEach(list => {
+          const wrap = list.closest('.file-wrap');
+          const inp  = wrap?.querySelector('input[type=file]');
+          if (!inp || inp.accept?.includes('video')) return;
+
+          const fieldId   = subId + '_' + (blockIdx + 1) + '_写真';
+          const mattoKey  = fieldId + '_matto';
+          const mattoInfo = mattoMap[mattoKey];
+          const idTrigger = wrap.querySelector('.id-trigger-btn');
+          if (!idTrigger) return;
+
+          if (mattoInfo && !mattoInfo.isTransparent) {
+            // 実マット → Blobがなければ復元してバッジ表示
+            if (!idTrigger._idBlob) {
+              const bytes = Uint8Array.from(atob(mattoInfo.base64), c => c.charCodeAt(0));
+              idTrigger._idBlob    = new Blob([bytes], { type: 'image/png' });
+              idTrigger._tempSaved = true;
+            }
+            updateIdBadge(wrap, idTrigger);
+          } else {
+            // 透明マット → 特定なし
+            idTrigger._idBlob = null;
+            idTrigger._idName = null;
+            updateIdBadge(wrap, idTrigger);
+          }
+        });
+      });
+    });
+  } catch(e) {
+    console.warn('マット再描画エラー:', e);
   }
 }
 
@@ -2369,7 +2465,71 @@ function showTempSaveIndicator(saving, success) {
   }
 }
 
-// ===== Firebase連携 =====
+// ===== 保存バー制御 =====
+let _isDirty = false;
+
+function markDirty() {
+  _isDirty = true;
+  const btn = document.getElementById('save-btn');
+  const bar = document.getElementById('save-bar');
+  if (btn) btn.classList.add('dirty');
+  if (bar) bar.classList.add('visible');
+  document.getElementById('save-status').textContent = '未保存の変更があります';
+}
+
+function markClean() {
+  _isDirty = false;
+  const btn = document.getElementById('save-btn');
+  if (btn) btn.classList.remove('dirty');
+  document.getElementById('save-status').textContent = '保存済み';
+  setTimeout(() => {
+    document.getElementById('save-status').textContent = '';
+  }, 2000);
+}
+
+// ===== 一括保存 =====
+async function saveAll(silent = false) {
+  if (!window._currentUser) return;
+  if (!silent) showTempSaveIndicator(true);
+  try {
+    // テキスト保存（Firestore）
+    if (window.saveToFirestore) await window.saveToFirestore();
+    // 画像保存（TEMP）
+    await doTempSave();
+    markClean();
+    if (!silent) showTempSaveIndicator(false, true);
+  } catch(e) {
+    console.warn('保存エラー:', e);
+    if (!silent) showTempSaveIndicator(false, false);
+  }
+}
+
+// ===== 変更検知（各フィールドの入力イベントに追加） =====
+function setupDirtyTracking() {
+  document.getElementById('form-body')?.addEventListener('input', () => markDirty());
+  document.getElementById('form-body')?.addEventListener('change', () => markDirty());
+}
+
+// ===== ログイン時に保存バーを表示・変更検知セットアップ =====
+function showSaveBar() {
+  const bar = document.getElementById('save-bar');
+  if (bar) bar.classList.add('visible');
+  setupDirtyTracking();
+}
+
+// ===== ログアウト時に保存バーを非表示 =====
+function hideSaveBar() {
+  const bar = document.getElementById('save-bar');
+  if (bar) bar.classList.remove('visible');
+}
+
+// ===== ページ離脱前警告 =====
+window.addEventListener('beforeunload', e => {
+  if (_isDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 function updateLoginUI(user) {
   const gate     = document.getElementById('login-gate');
   const loginBtn = document.getElementById('login-btn');
@@ -2386,6 +2546,7 @@ function updateLoginUI(user) {
     const formScreen = document.getElementById('form-screen');
     if (formScreen) {
       formScreen.style.setProperty('display', 'block', 'important');
+      showSaveBar();  // 保存バーを表示
       // 読み込み中オーバーレイを表示
       const overlay = document.getElementById('temp-save-overlay');
       if (overlay) {
@@ -2420,6 +2581,7 @@ function updateLoginUI(user) {
     if (userName)  userName.textContent    = '';
     const formScreen = document.getElementById('form-screen');
     if (formScreen) formScreen.style.setProperty('display', 'none', 'important');
+    hideSaveBar();  // 保存バーを非表示
     _tempImagesRestored = false;  // ログアウト時にリセット
     window._firestoreRestored = false;
     document.querySelectorAll('#form-screen input, #form-screen select, #form-screen textarea').forEach(el => {
@@ -2529,15 +2691,15 @@ async function restoreTempImages(uid) {
         idTrigger.onclick = () => { window._idTargetTrigger = idTrigger; openIdentification(blob, idBlob => {
           idTrigger._idBlob  = idBlob;
           idTrigger._tempSaved = false;
-          setTimeout(() => triggerTempSave(), 500);
+          markDirty();
         }); };
         list.appendChild(idTrigger);
       }
 
-      // マットも復元（savedFieldId + '_matto' で検索）
+      // マットも復元（透明マットは特定なしとして扱う）
       const mattoKey  = fieldId + '_matto';
       const mattoFile = fileMap[mattoKey];
-      if (mattoFile) {
+      if (mattoFile && !mattoFile.isTransparent) {
         const mf       = mattoFile;
         const mBytes   = atob(mf.base64);
         const mArr     = new Uint8Array(mBytes.length);
@@ -2555,7 +2717,7 @@ async function restoreTempImages(uid) {
           idTrigger.onclick = () => openIdentification(item._blob, idBlob => {
             idTrigger._idBlob = idBlob;
             idTrigger._tempSaved = false;
-            setTimeout(() => triggerTempSave(), 500);
+            markDirty();
           });
           list.appendChild(idTrigger);
         }
@@ -2647,7 +2809,7 @@ function triggerFirestoreSave() {
 const _origBuildForm = window.buildForm;
 document.addEventListener('input', e => {
   const tag = e.target.tagName.toLowerCase();
-  if (['input','select','textarea'].includes(tag)) triggerFirestoreSave();
+  if (['input','select','textarea'].includes(tag)) markDirty();
 });
 // ===== END =====
 
