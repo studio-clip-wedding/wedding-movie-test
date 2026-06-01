@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.6.1 -->
+<!-- FORM VERSION: v1.6.2 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -320,8 +320,8 @@ body{padding-top:40px}
             const current = grp.querySelectorAll('.block-item').length;
             for (let i = current; i < count; i++) addBtn.click();
           });
-          // ブロック生成を待ってからテキスト復元
-          await new Promise(r => setTimeout(r, 500));
+          // ブロック生成を待ってからテキスト復元（DOM生成を確実に待つ）
+          await new Promise(r => setTimeout(r, 800));
         }
 
         // テキストフィールドをelement IDで復元
@@ -339,7 +339,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.6.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.6.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="form-screen" style="display: block;">
@@ -453,7 +453,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.6.1';
+const _FORM_VERSION = 'v1.6.2';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -656,10 +656,6 @@ function closeTabMenu() {
 }
 
 function showSec(i) {
-  // セクション移動前に保存（_isDirtyの場合）
-  if (typeof _isDirty !== 'undefined' && _isDirty && _curSec !== i) {
-    saveAll(true);  // サイレント保存
-  }
   _curSec = i;
   document.querySelectorAll('.sec-block').forEach(el => el.classList.remove('active'));
   const el = document.getElementById(_secs[i].id); if (el) el.classList.add('active');
@@ -2570,10 +2566,10 @@ function updateLoginUI(user) {
             if (overlay) overlay.classList.remove('active');
           });
         } else {
-          setTimeout(() => waitAndRestore(attempts - 1), 300);
+          setTimeout(() => waitAndRestore(attempts - 1), 500);
         }
       };
-      waitAndRestore(10);
+      waitAndRestore(20);  // 最大10秒待機
     }
   } else {
     // 未ログイン → ゲートを表示・フォームを非表示・内容をクリア
