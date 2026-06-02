@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.8.8 -->
+<!-- FORM VERSION: v1.9.0 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -432,7 +432,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.8.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.9.0</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -562,7 +562,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.8.8';
+const _FORM_VERSION = 'v1.9.0';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2904,32 +2904,25 @@ async function openTextCheck() {
 
   const textList = fields.map((f, i) => `[${i}] セクション:${f.section} / フィールド:${f.label}\n${f.value}`).join('\n\n');
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `あなたはウェディングビデオ入稿フォームのテキストチェックAIです。
-以下のルールで入力テキストをチェックしてください：
-1. 忌み言葉（切る、割れる、別れる、終わる、消える、死ぬ、苦しむ、悲しむ、泣く、壊れる、飽きる、戻る、帰る、繰り返す、再び、また、重ね重ね、くれぐれも、いよいよ、たびたび、しばしば、ますます、など重ね言葉も含む）
-2. 明らかな誤字脱字
-3. 不自然な表現
+  if (!window._gasUrl) {
+    loading.style.display = 'none';
+    body.innerHTML = '<div id="text-check-empty" style="color:#c0392b">GAS URLが設定されていません。</div>';
+    return;
+  }
 
-問題がある場合のみ報告してください。問題がなければそのインデックスは含めないでください。
-必ずJSON形式のみで返してください（説明文不要）：
-{"results":[{"index":0,"suggested":"修正後テキスト","reason":"理由（忌み言葉：〇〇 または 誤字：〇〇）"}]}
-問題が1つもなければ {"results":[]} を返してください。`,
-        messages: [{ role: 'user', content: textList }]
+  try {
+    const res = await fetch(window._gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'textCheck',
+        text: textList
       })
     });
     const data = await res.json();
-    const raw = data.content?.map(c => c.text || '').join('').replace(/```json|```/g,'').trim();
-    const parsed = JSON.parse(raw);
+    if (data.status === 'error') throw new Error(data.message);
 
     loading.style.display = 'none';
-    renderCheckResults(parsed.results || [], fields, body);
+    renderCheckResults(data.results || [], fields, body);
   } catch(e) {
     loading.style.display = 'none';
     body.innerHTML = '<div id="text-check-empty" style="color:#c0392b">チェック中にエラーが発生しました。</div>';
