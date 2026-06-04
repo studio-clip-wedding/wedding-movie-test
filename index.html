@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v1.9.8 -->
+<!-- FORM VERSION: v2.0.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -245,6 +245,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .chk-col-lbl{font-size:10px;color:var(--m);margin-bottom:.3rem;font-weight:500}
 .chk-col-text{font-size:13px;color:var(--k);line-height:1.6;word-break:break-all}
 .chk-col-text.suggested{color:var(--a)}
+.chk-edit-area{width:100%;min-height:60px;border:.5px solid var(--b);border-radius:6px;padding:6px 8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--k);resize:vertical;line-height:1.6;background:var(--w)}
+.chk-col-hint{font-size:11px;color:var(--a);margin-top:4px}
+.chk-char-count{font-size:11px;color:var(--m);text-align:right;margin-top:2px}
+.chk-char-count.over{color:var(--er)}
 .chk-reason{padding:.4rem .875rem .6rem;font-size:11px;color:#c0392b;background:#fff8f7;border-top:.5px solid #fde0dc}
 .chk-actions{padding:.5rem .875rem;border-top:.5px solid var(--b);display:flex;justify-content:flex-end;gap:.5rem}
 .chk-btn-apply{background:var(--a);color:var(--w);border:none;border-radius:4px;padding:5px 16px;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
@@ -433,7 +437,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v1.9.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.0.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -563,7 +567,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v1.9.8';
+const _FORM_VERSION = 'v2.0.1';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2981,20 +2985,27 @@ function renderCheckResults(results, fields, body) {
     item.dataset.index = r.index;
 
     const isKimi = r.type === 'kimi';
-    const rightHtml = isKimi
-      ? `<div class="chk-col-lbl">言い換え候補</div><div class="chk-col-text suggested">「${r.word}」→「${r.suggest}」などに変更を</div>`
-      : `<div class="chk-col-lbl">推奨テキスト</div><div class="chk-col-text suggested">${r.suggested || ''}</div>`;
+    const initialText = isKimi ? f.value : (r.suggested || f.value);
+    const hintHtml = isKimi
+      ? `<div class="chk-col-hint">💡 「${r.word}」→「${r.suggest}」などに変更を</div>`
+      : '';
+
+    // フィールドの文字数制限を取得
+    const charCountEl = f.el.closest('.field')?.querySelector('.char-count');
+    const maxLen = charCountEl ? parseInt(charCountEl.textContent.split('/')[1]) : 0;
+    const maxAttr = maxLen ? `maxlength="${maxLen * 2}"` : '';
+    const counterHtml = maxLen ? `<div class="chk-char-count">${charCount(initialText)} / ${maxLen}</div>` : '';
 
     item.innerHTML = `
       <div class="chk-item-header">${f.section ? f.section + ' / ' : ''}${f.label}</div>
       <div class="chk-cols">
         <div class="chk-col"><div class="chk-col-lbl">元のテキスト</div><div class="chk-col-text">${f.value}</div></div>
-        <div class="chk-col">${rightHtml}</div>
+        <div class="chk-col"><div class="chk-col-lbl">修正テキスト</div><textarea class="chk-edit-area" ${maxAttr}>${initialText}</textarea>${counterHtml}${hintHtml}</div>
       </div>
       <div class="chk-reason">⚠ ${r.reason}</div>
       <div class="chk-actions">
         <button class="chk-btn-skip">スキップ</button>
-        ${isKimi ? '<button class="chk-btn-edit chk-btn-apply">編集する</button>' : '<button class="chk-btn-apply">変換する</button>'}
+        <button class="chk-btn-apply">変換する</button>
       </div>`;
 
     // スキップボタン
@@ -3017,25 +3028,25 @@ function renderCheckResults(results, fields, body) {
       item.classList.add('applied');
     });
 
-    // 編集するボタン（kimi）
-    if (isKimi) {
-      item.querySelector('.chk-btn-edit')?.addEventListener('click', () => {
-        closeTextCheck();
-        const curFields = collectTextFields();
-        const cf = curFields[r.index];
-        if (cf) {
-          cf.el.focus();
-          cf.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // textareaのリアルタイム文字数カウンター
+    if (maxLen) {
+      const ta = item.querySelector('.chk-edit-area');
+      const counter = item.querySelector('.chk-char-count');
+      ta?.addEventListener('input', () => {
+        const cnt = charCount(ta.value);
+        if (counter) {
+          counter.textContent = cnt + ' / ' + maxLen;
+          counter.classList.toggle('over', cnt > maxLen);
         }
       });
     }
 
-    // 変換ボタン（kimi以外）
-    if (!isKimi) {
-      item.querySelector('.chk-btn-apply')?.addEventListener('click', function() {
-        applyCheck(this, r.index, r.suggested || '');
-      });
-    }
+    // 変換ボタン（textarea値で反映）
+    item.querySelector('.chk-btn-apply')?.addEventListener('click', function() {
+      const editArea = item.querySelector('.chk-edit-area');
+      const newText = editArea ? editArea.value.trim() : (r.suggested || '');
+      applyCheck(this, r.index, newText);
+    });
 
     body.appendChild(item);
   });
