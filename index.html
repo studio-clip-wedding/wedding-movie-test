@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.0.3 -->
+<!-- FORM VERSION: v2.0.5 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -438,7 +438,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.0.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.0.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -568,7 +568,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.0.3';
+const _FORM_VERSION = 'v2.0.5';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1407,6 +1407,13 @@ function attachSave(){
   document.querySelectorAll('#form-body input:not([type=file]),#form-body select,#form-body textarea').forEach(el=>{
     el.addEventListener('input',e=>{scheduleSave();clearFieldError(e.target);clearChkBadge(e.target);});
     el.addEventListener('change',e=>{scheduleSave();clearFieldError(e.target);clearChkBadge(e.target);});
+  });
+  // イベント委任でブロック追加後のフィールドにも対応
+  document.getElementById('form-body')?.addEventListener('input', e => {
+    if (e.target.matches('input:not([type=file]),textarea')) clearChkBadge(e.target);
+  });
+  document.getElementById('form-body')?.addEventListener('change', e => {
+    if (e.target.matches('input:not([type=file]),select,textarea')) clearChkBadge(e.target);
   });
   // ファイル入力のエラー解除
   document.querySelectorAll('#form-body input[type=file]').forEach(el=>{
@@ -3070,11 +3077,12 @@ function applyCheck(btn, index, suggested) {
   if (f) {
     f.el.value = suggested;
     markDirty();
-    // フィールドラベルにチェック済みバッジを追加
     const fieldEl = f.el.closest('.field');
     if (fieldEl) {
       const lbl = fieldEl.querySelector('label.field-lbl');
-      if (lbl && !lbl.querySelector('.badge-checked')) {
+      if (lbl) {
+        // 既存バッジ（スキップ・チェック済）を削除してからチェック済を付ける
+        lbl.querySelectorAll('.badge-checked, .badge-skipped').forEach(b => b.remove());
         const badge = document.createElement('span');
         badge.className = 'badge-checked';
         badge.textContent = 'チェック済';
