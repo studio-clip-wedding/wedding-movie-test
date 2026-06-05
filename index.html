@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.0.7 -->
+<!-- FORM VERSION: v2.0.8 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -351,15 +351,28 @@ body{padding-top:40px}
             }).filter(Boolean);
           }
         });
-        // チェック済み・スキップ済みフィールドのIDを収集
+        // チェック済み・スキップ済みフィールドのキーを収集（IDまたは位置ベース）
         const checkedFields = [];
         const skippedFields = [];
+        const getBadgeKey = el => {
+          if (el.id) return el.id;
+          const blockItem = el.closest('.block-item');
+          if (blockItem) {
+            const grp = blockItem.closest('.block-grp');
+            const subId = grp?.dataset.subId || 'grp';
+            const blockIdx = Array.from(grp?.querySelectorAll('.block-item') || []).indexOf(blockItem);
+            const lbl2 = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || '';
+            return subId + '___' + blockIdx + '___' + lbl2;
+          }
+          return null;
+        };
         document.querySelectorAll('#form-body input, #form-body textarea').forEach(el => {
-          if (!el.id) return;
+          const key = getBadgeKey(el);
+          if (!key) return;
           const lbl = el.closest('.field')?.querySelector('label.field-lbl');
           if (!lbl) return;
-          if (lbl.querySelector('.badge-checked')) checkedFields.push(el.id);
-          if (lbl.querySelector('.badge-skipped')) skippedFields.push(el.id);
+          if (lbl.querySelector('.badge-checked')) checkedFields.push(key);
+          if (lbl.querySelector('.badge-skipped')) skippedFields.push(key);
         });
         // formDataに保存
         await setDoc(doc(db, 'formData', user.uid, 'draft', 'data'), {
@@ -442,9 +455,26 @@ body{padding-top:40px}
           });
         }
 
-        // バッジを再付与
-        (data.checkedFields || []).forEach(id => {
-          const el = document.getElementById(id);
+        // バッジを再付与（IDまたは位置ベースキー）
+        const findElByKey = key => {
+          if (!key.includes('___')) return document.getElementById(key);
+          const parts = key.split('___');
+          if (parts.length < 3) return null;
+          const [subId, blockIdxStr, lbl2] = parts;
+          const blockIdx = parseInt(blockIdxStr);
+          const grp = Array.from(document.querySelectorAll('.block-grp')).find(g => g.dataset.subId === subId);
+          if (!grp) return null;
+          const blockItem = grp.querySelectorAll('.block-item')[blockIdx];
+          if (!blockItem) return null;
+          let found = null;
+          blockItem.querySelectorAll('input, textarea').forEach(el => {
+            const elLbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
+            if (elLbl === lbl2) found = el;
+          });
+          return found;
+        };
+        (data.checkedFields || []).forEach(key => {
+          const el = findElByKey(key);
           const lbl = el?.closest('.field')?.querySelector('label.field-lbl');
           if (lbl && !lbl.querySelector('.badge-checked')) {
             const b = document.createElement('span');
@@ -452,8 +482,8 @@ body{padding-top:40px}
             lbl.appendChild(b);
           }
         });
-        (data.skippedFields || []).forEach(id => {
-          const el = document.getElementById(id);
+        (data.skippedFields || []).forEach(key => {
+          const el = findElByKey(key);
           if (el) el.dataset.chkSkipped = '1';
           const lbl = el?.closest('.field')?.querySelector('label.field-lbl');
           if (lbl && !lbl.querySelector('.badge-skipped')) {
@@ -471,7 +501,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.0.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.0.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -601,7 +631,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.0.7';
+const _FORM_VERSION = 'v2.0.8';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
