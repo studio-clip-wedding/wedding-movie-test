@@ -333,7 +333,6 @@ body{padding-top:40px}
               if (el.type === 'file' || !el.value) return;
               const lbl = getLabelText(el) || el.id;
               const key = subId + '___' + blockIdx + '___' + lbl;
-              console.log('saveFirestore block field:', key, '=', el.value);
               snapshot[key] = el.value;
             });
           });
@@ -447,7 +446,6 @@ body{padding-top:40px}
                 if (el.type === 'file') return;
                 const elLbl = getLabelText(el);
                 if (elLbl === lbl) {
-                  console.log('restore block field:', key, '=', val, 'found el:', el);
                   el.value = val;
                 }
               });
@@ -3138,11 +3136,9 @@ function renderCheckResults(results, fields, body) {
     item.querySelector('.chk-btn-apply')?.addEventListener('click', function() {
       const editArea = item.querySelector('.chk-edit-area');
       const newText = editArea ? editArea.value.trim() : (r.suggested || '');
-      console.log('applyCheck: f.el=', f.el, 'newText=', newText, 'el in DOM=', document.body.contains(f.el));
       // fを直接参照して値をセット
       delete f.el.dataset.chkSkipped;
       f.el.value = newText;
-      console.log('after set: f.el.value=', f.el.value);
       f.el.dispatchEvent(new Event('input', { bubbles: true }));
       const fieldEl = f.el.closest('.field');
       if (fieldEl) {
