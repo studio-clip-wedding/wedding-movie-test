@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.1.2 -->
+<!-- FORM VERSION: v2.1.3 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -331,7 +331,7 @@ body{padding-top:40px}
           grp.querySelectorAll('.block-item').forEach((blockItem, blockIdx) => {
             blockItem.querySelectorAll('input, select, textarea').forEach(el => {
               if (el.type === 'file' || !el.value) return;
-              const lbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || el.id;
+              const lbl = getLabelText(el) || el.id;
               const key = subId + '___' + blockIdx + '___' + lbl;
               console.log('saveFirestore block field:', key, '=', el.value);
               snapshot[key] = el.value;
@@ -362,7 +362,7 @@ body{padding-top:40px}
             const grp = blockItem.closest('.block-grp');
             const subId = grp?.dataset.subId || 'grp';
             const blockIdx = Array.from(grp?.querySelectorAll('.block-item') || []).indexOf(blockItem);
-            const lbl2 = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || '';
+            const lbl2 = getLabelText(el) || '';
             return subId + '___' + blockIdx + '___' + lbl2;
           }
           return null;
@@ -445,7 +445,7 @@ body{padding-top:40px}
               if (!blockItem) return;
               blockItem.querySelectorAll('input, select, textarea').forEach(el => {
                 if (el.type === 'file') return;
-                const elLbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
+                const elLbl = getLabelText(el);
                 if (elLbl === lbl) {
                   console.log('restore block field:', key, '=', val, 'found el:', el);
                   el.value = val;
@@ -472,7 +472,7 @@ body{padding-top:40px}
           if (!blockItem) return null;
           let found = null;
           blockItem.querySelectorAll('input, textarea').forEach(el => {
-            const elLbl = el.closest('.field')?.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim();
+            const elLbl = getLabelText(el);
             if (elLbl === lbl2) found = el;
           });
           return found;
@@ -505,7 +505,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.1.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.1.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -635,7 +635,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.1.2';
+const _FORM_VERSION = 'v2.1.3';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2974,6 +2974,16 @@ document.addEventListener('input', e => {
   if (['input','select','textarea'].includes(tag)) markDirty();
 });
 // ===== テキストチェック =====
+// ===== ラベルテキスト取得（バッジを除外） =====
+function getLabelText(el) {
+  const lbl = el.closest('.field')?.querySelector('label.field-lbl');
+  if (!lbl) return el.id || '';
+  return Array.from(lbl.childNodes)
+    .filter(n => n.nodeType === Node.TEXT_NODE)
+    .map(n => n.textContent.replace(/必須|任意/g, '').trim())
+    .join('').trim() || el.id || '';
+}
+
 function collectTextFields() {
   const results = [];
   // ブロック外（基本情報等）
@@ -2982,7 +2992,7 @@ function collectTextFields() {
     if (el.dataset.chkSkipped) return;  // スキップ済み除外
     const fieldEl = el.closest('.field');
     if (!fieldEl) return;
-    const lbl = fieldEl.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || el.id;
+    const lbl = getLabelText(el);
     const secBlock = el.closest('.sec-block');
     const secLbl = secBlock?.querySelector('.sec-label')?.textContent?.replace(/[【】]/g,'').trim() || '';
     results.push({ el, label: lbl, section: secLbl, value: el.value.trim() });
@@ -2997,7 +3007,7 @@ function collectTextFields() {
       if (el.dataset.chkSkipped) return;  // スキップ済み除外
       const fieldEl = el.closest('.field');
       if (!fieldEl) return;
-      const lbl = fieldEl.querySelector('label.field-lbl')?.textContent?.replace(/必須|任意/g,'').trim() || el.id;
+      const lbl = getLabelText(el);
       results.push({ el, label: lbl, section: subLbl + ' ' + blockNum, value: el.value.trim() });
     });
   });
