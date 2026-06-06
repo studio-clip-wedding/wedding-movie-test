@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.1.7 -->
+<!-- FORM VERSION: v2.1.8 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.1.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.1.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -633,7 +633,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.1.7';
+const _FORM_VERSION = 'v2.1.8';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1288,7 +1288,7 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
     if (!window._isRestoring && window._currentUser && window._gasUrl && window._tempFolderId) {
       const subId = grp.dataset.subId || 'grp';
       const newIdx = grp.querySelectorAll('.block-item').length - 1;
-      const mattoKey  = subId + '_' + (newIdx + 1) + '_写真_matto';
+      const mattoKey  = subId + '_' + (newIdx + 1) + '_素材_matto';
       const mattoName = mattoKey + '.png';
       const blob = makeTransparentBlob();
       const reader = new FileReader();
@@ -2401,8 +2401,8 @@ async function triggerTempSwap(blockA, blockB) {
   if (idxA === -1 || idxB === -1) return;
 
   // 並び替え後の現在位置でキーを決める
-  const keyA = subId + '_' + (idxA + 1) + '_写真';
-  const keyB = subId + '_' + (idxB + 1) + '_写真';
+  const keyA = subId + '_' + (idxA + 1) + '_素材';
+  const keyB = subId + '_' + (idxB + 1) + '_素材';
 
   showTempSaveIndicator(true);
   try {
@@ -2481,7 +2481,7 @@ async function doTempSave() {
         const wrap       = list.closest('.file-wrap');
         const inp        = wrap?.querySelector('input[type=file]');
         const isVideo    = inp?.accept?.includes('video');
-        const fieldLabel = isVideo ? '動画' : '写真';
+        const fieldLabel = '素材';
         const ext        = item._blob.type.includes('video') ? '.mp4' : '.jpg';
         const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
         const fileName   = fieldId + ext;
@@ -2574,7 +2574,7 @@ async function refreshMattoDisplay(uid) {
           const inp  = wrap?.querySelector('input[type=file]');
           if (!inp || inp.accept?.includes('video')) return;
 
-          const fieldId   = subId + '_' + (blockIdx + 1) + '_写真';
+          const fieldId   = subId + '_' + (blockIdx + 1) + '_素材';
           const mattoKey  = fieldId + '_matto';
           const mattoInfo = mattoMap[mattoKey];
           const idTrigger = wrap.querySelector('.id-trigger-btn');
@@ -2805,7 +2805,7 @@ async function restoreTempImages(uid) {
           if (!inp) return;
 
           const isVideo    = inp.accept?.includes('video');
-          const fieldLabel = isVideo ? '動画' : '写真';
+          const fieldLabel = '素材';
           const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
           const f          = fileMap[fieldId];
           if (!f) return;
