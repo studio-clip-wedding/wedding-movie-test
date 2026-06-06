@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.2.5 -->
+<!-- FORM VERSION: v2.2.2 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.2.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.2.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -633,7 +633,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.2.5';
+const _FORM_VERSION = 'v2.2.2';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -982,18 +982,8 @@ function buildFileField(id, cropRatioStr, withIdentification) {
   function clearImg() {
     inp.value = ''; list.innerHTML = '';
     unlockPair(wrap);
-    markDirty();
-    // 位置ベースキーを計算して削除マーカーを保存
-    setTimeout(() => {
-      const blockItem = wrap.closest('.block-item');
-      const grp = blockItem?.closest('.block-grp');
-      if (grp && blockItem) {
-        const subId = grp.dataset.subId || 'grp';
-        const blockIdx = Array.from(grp.querySelectorAll('.block-item')).indexOf(blockItem);
-        const fieldId = subId + '_' + (blockIdx + 1) + '_素材';
-        triggerTempSaveEmpty(fieldId);
-      }
-    }, 500);
+    // 画像削除をGASに通知（削除フラグ付きで送信）
+    setTimeout(() => triggerTempDelete(id), 500);
   }
 
   inp.addEventListener('change', () => {
@@ -1531,9 +1521,7 @@ function renderBlockConfirm(block, bi, secDiv) {
     const val = document.createElement('div'); val.className = 'confirm-val';
     const img = document.createElement('img'); img.className = 'confirm-thumb'; img.src = thumb.src; img.onclick=()=>openLightbox(thumb.src);
     const fn = document.createElement('div'); fn.className = 'confirm-file'; fn.style.marginTop='4px'; fn.textContent = '🖼 ' + fileName;
-    // 特定済み表示
-    const idBadge = block.querySelector('.id-badge');
-    if (idBadge) { const idTag = document.createElement('span'); idTag.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; idTag.textContent='特定済み'; fn.appendChild(idTag); }
+    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; t.textContent='特定済み'; fn.appendChild(t); }
     val.appendChild(img); val.appendChild(fn);
     row.appendChild(lbl); row.appendChild(val); secDiv.appendChild(row);
   } else if (fileInp && fileInp.files && fileInp.files[0]) {
@@ -1543,8 +1531,7 @@ function renderBlockConfirm(block, bi, secDiv) {
     const val = document.createElement('div'); val.className = 'confirm-val';
     const fr2 = new FileReader(); fr2.onload = e => { const img = document.createElement('img'); img.className = 'confirm-thumb'; img.src = e.target.result; img.onclick=()=>openLightbox(e.target.result); val.insertBefore(img, val.firstChild); }; fr2.readAsDataURL(f);
     const fn = document.createElement('div'); fn.className = 'confirm-file'; fn.textContent = '🖼 ' + f.name;
-    const idBadge2 = block.querySelector('.id-badge');
-    if (idBadge2) { const idTag = document.createElement('span'); idTag.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; idTag.textContent='特定済み'; fn.appendChild(idTag); }
+    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; t.textContent='特定済み'; fn.appendChild(t); }
     val.appendChild(fn);
     row.appendChild(lbl); row.appendChild(val); secDiv.appendChild(row);
   }
@@ -2461,23 +2448,25 @@ function triggerTempSave() {
 }
 
 // ===== TEMP削除（画像削除時・透明マットで上書き） =====
-// ===== 素材削除時：削除マーカーを保存（_deletedキー） =====
-async function triggerTempSaveEmpty(fieldId) {
+async function triggerTempDelete(fieldId) {
   const user = window._currentUser;
   if (!user || !window._gasUrl) return;
-  const EMPTY_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
+  showTempSaveIndicator(true);
   try {
-    await fetch(window._gasUrl, {
+    const res = await fetch(window._gasUrl, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'tempSave', uid: user.uid,
-        tempFolderId: window._tempFolderId,
-        files: [{ fieldId: fieldId + '_deleted', fileName: fieldId + '_deleted.png', base64: EMPTY_B64, mimeType: 'image/png', isMatto: false }]
+        action: 'tempDelete', uid: user.uid,
+        tempFolderId: window._tempFolderId || '', fieldId,
       })
     });
-  } catch(e) { console.warn('素材削除マーカー保存エラー:', e); }
+    const result = await res.json();
+    showTempSaveIndicator(false, result.status === 'ok');
+  } catch(e) {
+    console.warn('TEMP削除エラー:', e);
+    showTempSaveIndicator(false, false);
+  }
 }
-
 
 // ===== doTempSave（未保存ファイルをまとめて送信） =====
 async function doTempSave() {
@@ -2822,7 +2811,6 @@ async function restoreTempImages(uid) {
           const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
           const f          = fileMap[fieldId];
           if (!f) return;
-          if (fileMap[fieldId + '_deleted']) return;  // 削除済みはスキップ
 
           const isVideoFile = f.mimeType && f.mimeType.includes('video');
           if (isVideo !== isVideoFile) return;
