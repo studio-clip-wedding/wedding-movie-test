@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.1 -->
+<!-- FORM VERSION: v2.3.2 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.1</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -633,7 +633,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.1';
+const _FORM_VERSION = 'v2.3.2';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1313,7 +1313,7 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
       const newIdx = grp.querySelectorAll('.block-item').length - 1;
       const mattoKey   = subId + '_' + (newIdx + 1) + '_素材_matto';
       const mattoName  = mattoKey + '.png';
-      const sozaiKey   = subId + '_' + (newIdx + 1) + '_素材_empty';
+      const sozaiKey   = subId + '_' + (newIdx + 1) + '_素材';
       const sozaiName  = sozaiKey + '.jpg';
       const blob = makeTransparentBlob();
       const reader = new FileReader();
@@ -1326,7 +1326,7 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
             tempFolderId: window._tempFolderId,
             files: [
               { fieldId: mattoKey,  fileName: mattoName,  base64, mimeType: 'image/png', isMatto: true },
-              { fieldId: sozaiKey,  fileName: sozaiName,  base64, mimeType: 'image/jpeg', isMatto: false }
+              { fieldId: sozaiKey,  fileName: sozaiName,  base64, mimeType: 'image/jpeg', isMatto: false }  // 透明素材（空ブロックマーカー）
             ]
           })
         }).catch(e => console.warn('透明素材保存エラー:', e));
@@ -2827,7 +2827,7 @@ async function restoreTempImages(uid) {
           const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel;
           const f          = fileMap[fieldId];
           if (!f) return;
-          if (f.isTransparent || fieldId.includes('_empty')) return;  // 空ブロックはスキップ
+          if (f.isTransparent) return;  // 透明素材（空ブロック）はスキップ
 
           const isVideoFile = f.mimeType && f.mimeType.includes('video');
           if (isVideo !== isVideoFile) return;
