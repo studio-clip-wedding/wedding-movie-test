@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.2 -->
+<!-- FORM VERSION: v2.3.3 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">素材を保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.2</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.3</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -633,7 +633,7 @@ body{padding-top:40px}
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.2';
+const _FORM_VERSION = 'v2.3.3';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1255,7 +1255,7 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
         if (!next || !next.classList.contains('block-item')) break;
         grp.insertBefore(next, cur);
         swapResolvedPrefix(cur, next);
-        await triggerTempSwap(next, cur, true);
+        // GASスワップは保存時の一括処理に任せる（削除時はDOM操作のみ）
       }
       // 最後尾の素材・マットをTEMP削除
       const lastItems = Array.from(grp.querySelectorAll('.block-item'));
@@ -1919,13 +1919,13 @@ async function collectAndSend(gasUrl) {
 
         // 通常素材（blobがfile-itemに保存されている）
         if (fileItem._blob) {
-          // resolvedPrefixがあればプレフィックス+拡張子でファイル名生成
-          const rp = fieldEl ? fieldEl._resolvedPrefix : '';
+          const rp = (fieldEl ? fieldEl._resolvedPrefix : '') || (fileList.closest('.file-wrap')?._resolvedPrefix) || '';
           const ext = (fileItem._blob.type || 'image/jpeg').split('/')[1]?.replace('jpeg','jpg') || 'jpg';
+          const posFieldId = rp || fieldId;  // 位置ベースキーを優先
           const fileName = rp ? (rp + '.' + ext) : (fileItem._name || (fieldId + '.' + ext));
           const originalName = fileItem._name || fileName;
-          files.push({ fieldId, fileName, originalName, base64: null, blobRef: fileItem._blob, mimeType: fileItem._blob.type || 'image/jpeg', isMatto: false });
-          blockFields.push({ label: '素材', type: 'file', fieldId, value: fileName, originalName });
+          files.push({ fieldId: posFieldId, fileName, originalName, base64: null, blobRef: fileItem._blob, mimeType: fileItem._blob.type || 'image/jpeg', isMatto: false });
+          blockFields.push({ label: '素材', type: 'file', fieldId: posFieldId, value: fileName, originalName });
         }
 
         // 人物特定マット（file-wrapスコープで検索）
