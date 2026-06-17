@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.6 -->
+<!-- FORM VERSION: v2.3.7 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.6</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -626,16 +626,17 @@ body{padding-top:40px}
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.16.001
-// FORM VERSION: v2.3.6
+// GENERATOR VERSION: 2026.06.17.001
+// FORM VERSION: v2.3.7
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
+// v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // COLUMN MAP (v7)
 // A=0:title B=1:hint C=2:required D=3:type
 // E=4:maxLen F=5:typeSpec G=6:blockCfg H=7:filePrefix
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.6';
+const _FORM_VERSION = 'v2.3.7';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1932,11 +1933,16 @@ async function collectAndSend(gasUrl) {
         const inp = fileList.closest('.file-wrap')?.querySelector('input[type=file]');
         const fieldId = inp ? inp.id : ('f_' + Math.random().toString(36).slice(2));
 
+        // resolvedPrefix と 位置ベースキーは「通常素材」「人物特定マット」両方のブロックで使うため、
+        // ここ（両ブロックの外側スコープ）で定義する。
+        // ※ 旧版では posFieldId を if(fileItem._blob) ブロック内で const 宣言しており、
+        //   マット処理ブロックから参照すると "posFieldId is not defined" になっていた（v2.3.7で修正）
+        const rp = (fieldEl ? fieldEl._resolvedPrefix : '') || (fileList.closest('.file-wrap')?._resolvedPrefix) || '';
+        const posFieldId = rp || fieldId;  // 位置ベースキーを優先
+
         // 通常素材（blobがfile-itemに保存されている）
         if (fileItem._blob) {
-          const rp = (fieldEl ? fieldEl._resolvedPrefix : '') || (fileList.closest('.file-wrap')?._resolvedPrefix) || '';
           const ext = (fileItem._blob.type || 'image/jpeg').split('/')[1]?.replace('jpeg','jpg') || 'jpg';
-          const posFieldId = rp || fieldId;  // 位置ベースキーを優先
           const fileName = rp ? (rp + '.' + ext) : (fileItem._name || (fieldId + '.' + ext));
           const originalName = fileItem._name || fileName;
           files.push({ fieldId: posFieldId, fileName, originalName, base64: null, blobRef: fileItem._blob, mimeType: fileItem._blob.type || 'image/jpeg', isMatto: false });
