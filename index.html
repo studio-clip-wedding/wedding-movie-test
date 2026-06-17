@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.5 -->
+<!-- FORM VERSION: v2.3.6 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.5</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.6</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -626,14 +626,16 @@ body{padding-top:40px}
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.05.25.102
+// GENERATOR VERSION: 2026.06.16.001
+// FORM VERSION: v2.3.6
+// 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // COLUMN MAP (v7)
 // A=0:title B=1:hint C=2:required D=3:type
 // E=4:maxLen F=5:typeSpec G=6:blockCfg H=7:filePrefix
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.5';
+const _FORM_VERSION = 'v2.3.6';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1880,6 +1882,9 @@ async function submitForm(){
     document.getElementById('confirm-screen').style.display = 'none';
     document.getElementById('success-screen').style.display = 'flex';
     try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+    // 工程1: 送信成功後にロックをかける（次回開いたときパスワード画面になる）
+    const user = window._currentUser;
+    if (user) lockAfterSubmit(user.uid);
   }).catch(err => {
     if (overlay) overlay.classList.remove('active');
     alert('送信に失敗しました。\n' + err.message);
@@ -2773,6 +2778,8 @@ function updateLoginUI(user) {
         }
       };
       waitAndRestore(20);  // 最大10秒待機
+      // 工程1: ロック状態を確認（ロック中ならパスワード画面を表示）
+      checkLockOnLogin(user.uid);
     }
   } else {
     // 未ログイン → ゲートを表示・フォームを非表示・内容をクリア
@@ -2783,6 +2790,7 @@ function updateLoginUI(user) {
     const formScreen = document.getElementById('form-screen');
     if (formScreen) formScreen.style.setProperty('display', 'none', 'important');
     hideSaveBar();  // 保存バーを非表示
+    if (typeof hideLockScreen === 'function') hideLockScreen();  // 工程1: ロック画面も隠す
     _tempImagesRestored = false;  // ログアウト時にリセット
     window._firestoreRestored = false;
     document.querySelectorAll('#form-screen input, #form-screen select, #form-screen textarea').forEach(el => {
@@ -2798,6 +2806,113 @@ window._updateLoginUI = (user) => {
   if (!gate || gate.dataset.managed !== 'true') return;
   updateLoginUI(user);
 };
+
+// ============================================================
+// 工程1: 再送信ロック
+//   ロック状態は Firestore の formData/{uid}/meta/submitState に保存
+//   { locked: bool, submitCount: number, lastSubmittedAt: ISO文字列 }
+//   ・送信成功後に locked:true（lockAfterSubmit）
+//   ・ログイン時に locked:true ならパスワード画面を表示（checkLockOnLogin）
+//   ・再送信パスワード（未設定なら管理者パスワード）で解除（unlockForm）
+// ============================================================
+function _lockDocRef(uid) {
+  const fb = window._fb;
+  if (!fb || !fb.doc || !fb.db || !uid) return null;
+  return fb.doc(fb.db, 'formData', uid, 'meta', 'submitState');
+}
+async function readLockState(uid) {
+  try {
+    const fb = window._fb;
+    if (!fb || !fb.getDoc) return null;
+    const ref = _lockDocRef(uid);
+    if (!ref) return null;
+    const snap = await fb.getDoc(ref);
+    return snap.exists() ? snap.data() : { locked: false, submitCount: 0 };
+  } catch (e) {
+    console.warn('ロック状態の取得に失敗:', e);
+    return null;
+  }
+}
+async function writeLockState(uid, patch) {
+  try {
+    const fb = window._fb;
+    if (!fb || !fb.setDoc) return false;
+    const ref = _lockDocRef(uid);
+    if (!ref) return false;
+    await fb.setDoc(ref, { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (e) {
+    console.warn('ロック状態の保存に失敗:', e);
+    return false;
+  }
+}
+// 送信成功後にロックをかける（送信回数をインクリメント）
+async function lockAfterSubmit(uid) {
+  if (!uid) return;
+  const cur = await readLockState(uid) || { submitCount: 0 };
+  const nextCount = (cur.submitCount || 0) + 1;
+  await writeLockState(uid, {
+    locked: true,
+    submitCount: nextCount,
+    lastSubmittedAt: new Date().toISOString(),
+  });
+}
+// 解除に使うパスワード：再送信パスワード優先、未設定なら管理者パスワード
+function _effectiveResendPass() {
+  const rp = (window._resendPass || '').trim();
+  return rp.length ? rp : (_adminPass || '');
+}
+// パスワード画面を生成・表示
+function showLockScreen() {
+  let ov = document.getElementById('resend-lock-screen');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'resend-lock-screen';
+    ov.style.cssText = "position:fixed;inset:0;background:var(--bg,#f7f4ef);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;gap:1.2rem;padding:2rem;font-family:'Noto Sans JP',sans-serif";
+    ov.innerHTML =
+      '<div style="font-size:1.3rem;font-weight:500;color:var(--f,#1c1a17);letter-spacing:.05em">送信が完了しました</div>' +
+      '<div style="font-size:.85rem;color:var(--b3,#8a8378);text-align:center;line-height:1.8">内容の修正が必要な場合は、担当者からお伝えする<br>再送信パスワードを入力してください。</div>' +
+      '<input id="resend-lock-input" type="password" placeholder="再送信パスワード" autocomplete="off" ' +
+      'style="padding:11px 16px;border:1px solid var(--bs,#d8d2c6);border-radius:8px;font-size:14px;width:240px;max-width:80vw;text-align:center;font-family:inherit">' +
+      '<button id="resend-lock-btn" ' +
+      'style="padding:11px 28px;border-radius:8px;border:none;background:var(--a,#8b7355);color:#fff;cursor:pointer;font-size:14px;font-family:inherit">ロックを解除</button>' +
+      '<div id="resend-lock-error" style="font-size:12px;color:var(--er,#c0392b);min-height:16px"></div>';
+    document.body.appendChild(ov);
+    const btn = ov.querySelector('#resend-lock-btn');
+    const inp = ov.querySelector('#resend-lock-input');
+    if (btn) btn.addEventListener('click', unlockForm);
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') unlockForm(); });
+  }
+  ov.style.display = 'flex';
+  const errEl = ov.querySelector('#resend-lock-error');
+  if (errEl) errEl.textContent = '';
+}
+function hideLockScreen() {
+  const ov = document.getElementById('resend-lock-screen');
+  if (ov) ov.style.display = 'none';
+}
+// 解除処理
+async function unlockForm() {
+  const inp = document.getElementById('resend-lock-input');
+  const errEl = document.getElementById('resend-lock-error');
+  const pw = (inp ? inp.value : '').trim();
+  const expected = _effectiveResendPass();
+  // 管理者パスワードはマスターキーとして常に解除可能
+  const ok = (expected && pw === expected) || (_adminPass && pw === _adminPass);
+  if (!ok) {
+    if (errEl) errEl.textContent = 'パスワードが違います';
+    return;
+  }
+  const user = window._currentUser;
+  if (user) await writeLockState(user.uid, { locked: false });
+  hideLockScreen();
+}
+// ログイン時にロック状態を確認し、ロック中ならパスワード画面を出す
+async function checkLockOnLogin(uid) {
+  const state = await readLockState(uid);
+  if (state && state.locked) showLockScreen();
+  else hideLockScreen();
+}
 
 // ========== TEMP画像復元（ログイン時） ==========
 let _tempImagesRestored = false;
@@ -3247,7 +3362,7 @@ function closeTextCheck() {
 
 // ===== END =====
 
-(function(){var _r=[["【基本情報】","","","section","","","",""],["挙式日","","任意","date","","","",""],["式場名","正式名称でご入力ください","任意","text","80","〇〇グランドホテル ウェディングホール","",""],["メールアドレス","お客様のメールアドレスをご入力ください","任意","email","","example@gmail.com","",""],["新郎 苗字（漢字）","苗字のみ漢字でご入力ください","任意","text","20","山田","pair",""],["新郎 名前（漢字）","名前のみ漢字でご入力ください","任意","text","20","太郎","",""],["新郎 苗字（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","YAMADA","pair",""],["新郎 名前（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","TARO","",""],["新婦 苗字（漢字）","苗字のみ漢字でご入力ください","任意","text","20","田中","pair",""],["新婦 名前（漢字）","名前のみ漢字でご入力ください","任意","text","20","花子","",""],["新婦 苗字（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","TANAKA","pair",""],["新婦 名前（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","HANAKO","",""],["【新郎パート】","","","section","","","",""],["参考画像","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["説明","","","note","","ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。","noblock",""],["▸ 幼少シーン","","","subsection","","","","RA"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file_id","","1:1","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""],["▸ 学生シーン","","","subsection","","","","RB"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file","","","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""],["▸ 社会人シーン","","","subsection","","","","RC"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file_id","","1:1","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""]];var _t="ウェディングムービー スタンダードプラン 入稿フォーム";var _p="studio2024";var _g="https://script.google.com/macros/s/AKfycbw3vsGDoOrAdfIQvs6sgslSa9lR97uQ-rBhwgojmziffsLAyjylnh5uQkGr_IXLTUAFtQ/exec";var _rf="1s10Rblr_hFiYYQAHYJg9OiTjYQDGJWz1";var _tf="1eyQriga1ERX5emawuIZuVJ4VvBUYsUYi";var _si="1Vsq-aOvJSjuG1ahubONIto-tpmz9gFE06-ITxTpGGu0";var _sn="入稿データ";var _mt="yusuke.fujiwara.work@gmail.com";var _ms="【入稿通知】{商品名} - {新郎苗字}_{新婦苗字}";var _msig="Studio Clip Wedding\n入稿管理システム";var _dk="movie";function _boot(){var el=document.getElementById('form-title');if(el&&_t)el.textContent=_t;document.title=_t||document.title;window._gasUrl=_g;window._rootFolderId=_rf;window._tempFolderId=_tf;window._spreadsheetId=_si;window._sheetName=_sn;window._mailTo=_mt;window._mailSubject=_ms;window._mailSignature=_msig;window._durationKeyword=_dk;buildForm(_r,'',_p);}if(document.readyState!=="loading"){_boot();}else{document.addEventListener("DOMContentLoaded",_boot);}})();
+(function(){var _r=[["【基本情報】","","","section","","","",""],["挙式日","","任意","date","","","",""],["式場名","正式名称でご入力ください","任意","text","80","〇〇グランドホテル ウェディングホール","",""],["メールアドレス","お客様のメールアドレスをご入力ください","任意","email","","example@gmail.com","",""],["新郎 苗字（漢字）","苗字のみ漢字でご入力ください","任意","text","20","山田","pair",""],["新郎 名前（漢字）","名前のみ漢字でご入力ください","任意","text","20","太郎","",""],["新郎 苗字（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","YAMADA","pair",""],["新郎 名前（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","TARO","",""],["新婦 苗字（漢字）","苗字のみ漢字でご入力ください","任意","text","20","田中","pair",""],["新婦 名前（漢字）","名前のみ漢字でご入力ください","任意","text","20","花子","",""],["新婦 苗字（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","TANAKA","pair",""],["新婦 名前（ローマ字）","アルファベット大文字でご入力ください","任意","text","30","HANAKO","",""],["【新郎パート】","","","section","","","",""],["参考画像","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["説明","","","note","","ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。","noblock",""],["▸ 幼少シーン","","","subsection","","","","RA"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file_id","","1:1","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""],["▸ 学生シーン","","","subsection","","","","RB"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file","","","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""],["▸ 社会人シーン","","","subsection","","","","RC"],["参考イメージ","","","image","","https://drive.google.com/file/d/XXXXXXXXXX/view","noblock",""],["写真","","任意","file_id","","1:1","block:min=0:max=10",""],["動画","","任意","video_file","","","",""],["年齢","","任意","select","","非表示,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99","",""],["コメント","最大15文字","任意","text","15","よろしくお願いします","",""]];var _t="ウェディングムービー スタンダードプラン 入稿フォーム";var _p="studio2024";var _rp="resend2024";var _g="https://script.google.com/macros/s/AKfycbw3vsGDoOrAdfIQvs6sgslSa9lR97uQ-rBhwgojmziffsLAyjylnh5uQkGr_IXLTUAFtQ/exec";var _rf="1s10Rblr_hFiYYQAHYJg9OiTjYQDGJWz1";var _tf="1eyQriga1ERX5emawuIZuVJ4VvBUYsUYi";var _si="1Vsq-aOvJSjuG1ahubONIto-tpmz9gFE06-ITxTpGGu0";var _sn="入稿データ";var _mt="yusuke.fujiwara.work@gmail.com";var _ms="【入稿通知】{商品名} - {新郎苗字}_{新婦苗字}";var _msig="Studio Clip Wedding\r\n入稿管理システム";var _dk="movie";function _boot(){var el=document.getElementById('form-title');if(el&&_t)el.textContent=_t;document.title=_t||document.title;window._gasUrl=_g;window._rootFolderId=_rf;window._tempFolderId=_tf;window._spreadsheetId=_si;window._sheetName=_sn;window._mailTo=_mt;window._mailSubject=_ms;window._mailSignature=_msig;window._durationKeyword=_dk;window._resendPass=_rp;buildForm(_r,'',_p);}if(document.readyState!=="loading"){_boot();}else{document.addEventListener("DOMContentLoaded",_boot);}})();
 </script>
 </body>
 </html>
