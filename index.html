@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.7 -->
+<!-- FORM VERSION: v2.3.8 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.7</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.8</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -523,7 +523,7 @@ body{padding-top:40px}
     </div>
   </div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ウェディングムービー スタンダードプラン 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -543,7 +543,7 @@ body{padding-top:40px}
   </div>
 </div>
   </div>
-  <div class="form-body" id="form-body"><div class="sec-block active" id="sec1"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【基本情報】</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f2">挙式日</label><span class="badge-opt" >任意</span></div><input type="date" id="f2"></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f3">式場名</label><span class="badge-opt" >任意</span></div><div class="field-hint">正式名称でご入力ください</div><input type="text" id="f3" placeholder="例）〇〇グランドホテル ウェディングホール"><div class="char-count">0 / 80</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f4">メールアドレス</label><span class="badge-opt" >任意</span></div><div class="field-hint">お客様のメールアドレスをご入力ください</div><input type="email" id="f4" placeholder="例）example@gmail.com"></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f5">新郎 苗字（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f5" placeholder="例）山田"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f6">新郎 名前（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f6" placeholder="例）太郎"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f7">新郎 苗字（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f7" placeholder="例）YAMADA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f8">新郎 名前（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f8" placeholder="例）TARO"><div class="char-count">0 / 30</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f9">新婦 苗字（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f9" placeholder="例）田中"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f10">新婦 名前（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f10" placeholder="例）花子"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f11">新婦 苗字（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f11" placeholder="例）TANAKA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f12">新婦 名前（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f12" placeholder="例）HANAKO"><div class="char-count">0 / 30</div></div></div><div class="sec-footer"><button class="btn-nav" disabled="">← 前へ</button><button class="btn-check">📝 テキストチェック</button><button class="btn-submit-float">入稿内容の確認</button><button class="btn-nav btn-nav-next">次へ →</button></div><div class="force-wrap" style="text-align: center; padding: 0.6rem 0px;"><button type="button" style="background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; font-size: 12px; color: var(--k); cursor: pointer; font-family: &quot;Noto Sans JP&quot;, sans-serif; text-decoration: underline;">管理者用</button></div></div><div class="sec-block" id="sec13"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【新郎パート】</div></div><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="field"><div class="field-note">ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。</div></div><div class="sub-hdr" data-sub-label="幼少シーン"><div class="sub-bar"></div><div class="sub-label">幼少シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="幼少シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr" data-sub-label="学生シーン"><div class="sub-bar"></div><div class="sub-label">学生シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="学生シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr" data-sub-label="社会人シーン"><div class="sub-bar"></div><div class="sub-label">社会人シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="社会人シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div></div></div>
+  <div class="form-body" id="form-body"><div class="sec-block active" id="sec1"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【基本情報】</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f2">挙式日</label><span class="badge-opt" >任意</span></div><input type="date" id="f2"></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f3">式場名</label><span class="badge-opt" >任意</span></div><div class="field-hint">正式名称でご入力ください</div><input type="text" id="f3" placeholder="例）〇〇グランドホテル ウェディングホール"><div class="char-count">0 / 80</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f4">メールアドレス</label><span class="badge-opt" >任意</span></div><div class="field-hint">お客様のメールアドレスをご入力ください</div><input type="email" id="f4" placeholder="例）example@gmail.com"></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f5">新郎 苗字（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f5" placeholder="例）山田"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f6">新郎 名前（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f6" placeholder="例）太郎"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f7">新郎 苗字（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f7" placeholder="例）YAMADA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f8">新郎 名前（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f8" placeholder="例）TARO"><div class="char-count">0 / 30</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f9">新婦 苗字（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">苗字のみ漢字でご入力ください</div><input type="text" id="f9" placeholder="例）田中"><div class="char-count">0 / 20</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f10">新婦 名前（漢字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">名前のみ漢字でご入力ください</div><input type="text" id="f10" placeholder="例）花子"><div class="char-count">0 / 20</div></div></div><div class="field-pair"><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f11">新婦 苗字（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f11" placeholder="例）TANAKA"><div class="char-count">0 / 30</div></div><div class="field"><div class="field-lbl-row"><label class="field-lbl" for="f12">新婦 名前（ローマ字）</label><span class="badge-opt" >任意</span></div><div class="field-hint">アルファベット大文字でご入力ください</div><input type="text" id="f12" placeholder="例）HANAKO"><div class="char-count">0 / 30</div></div></div><div class="sec-footer"><button class="btn-nav" disabled="">← 前へ</button><button class="btn-check">📝 テキストチェック</button><button class="btn-submit-float">入稿内容の確認</button><button class="btn-nav btn-nav-next">次へ →</button></div><div class="force-wrap" style="text-align: center; padding: 0.6rem 0px;"><button type="button" style="background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; font-size: 12px; color: var(--k); cursor: pointer; font-family: &quot;Noto Sans JP&quot;, sans-serif; text-decoration: underline;">管理者用</button></div></div><div class="sec-block" id="sec13"><div class="sec-hdr"><div class="sec-bar"></div><div class="sec-label">【新郎パート】</div></div><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="field"><div class="field-note">ここに説明テキストを入力してください。各シーンの写真や動画をアップロードしてください。</div></div><div class="sub-hdr" data-sub-label="新郎パート_幼少シーン"><div class="sub-bar"></div><div class="sub-label">幼少シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="新郎パート_幼少シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr" data-sub-label="新郎パート_学生シーン"><div class="sub-bar"></div><div class="sub-label">学生シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="新郎パート_学生シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div><div class="sub-hdr" data-sub-label="新郎パート_社会人シーン"><div class="sub-bar"></div><div class="sub-label">社会人シーン</div><span class="sub-count" style="display: inline;">0/10</span><span class="sub-arrow">▶</span></div><div class="sub-body"><div class="field"><div class="img-display" ><div class="img-loading">読み込み中...</div><img alt="" src="https://drive.google.com/thumbnail?id=XXXXXXXXXX&amp;sz=w800" ></div></div><div class="block-grp" data-sub-id="新郎パート_社会人シーン"><button class="block-add" type="button">＋ ブロックを追加 (0/10)</button></div></div></div></div>
 </div>
 <div id="success-screen">
   <div class="success-icon">✓</div>
@@ -551,7 +551,7 @@ body{padding-top:40px}
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -626,17 +626,18 @@ body{padding-top:40px}
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.17.001
-// FORM VERSION: v2.3.7
+// GENERATOR VERSION: 2026.06.19.001
+// FORM VERSION: v2.3.8
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
+// v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
 // COLUMN MAP (v7)
 // A=0:title B=1:hint C=2:required D=3:type
 // E=4:maxLen F=5:typeSpec G=6:blockCfg H=7:filePrefix
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.7';
+const _FORM_VERSION = 'v2.3.8';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -689,7 +690,7 @@ function buildForm(rows, productName, adminPass) {
       el.appendChild(hdr);
       body.appendChild(el);
       _secs.push({ id, label: title.replace(/[【】]/g,'') });
-      cur = { el, rows: [], subBody: null };
+      cur = { el, rows: [], subBody: null, label: title.replace(/[【】]/g,'') };
       sections.push(cur);
       return;
     }
@@ -699,7 +700,7 @@ function buildForm(rows, productName, adminPass) {
       const el = document.createElement('div'); el.className = 'sec-block'; el.id = 'sec0';
       body.appendChild(el);
       _secs.push({ id: 'sec0', label: 'フォーム' });
-      cur = { el, rows: [], subBody: null };
+      cur = { el, rows: [], subBody: null, label: 'フォーム' };
       sections.push(cur);
     }
 
@@ -750,7 +751,10 @@ function buildForm(rows, productName, adminPass) {
         currentSubPrefix = chunk.fr.filePrefix || '';
         const subHdr = document.createElement('div'); subHdr.className = 'sub-hdr';
         const lbl = chunk.fr.title.replace(/^[▸▷►]\s*/, '');
-        subHdr.dataset.subLabel = lbl;  // subIdとして使用
+        // subId（TEMP命名用）はセクション込みにする（新婦パートで同じサブセクション名が来ても衝突しないように）
+        // 例: 新郎パート_幼少シーン_1_素材_V1 。表示テキスト（.sub-label）はサブセクション名のまま。
+        const combinedSubId = sec.label ? (sec.label + '_' + lbl) : lbl;
+        subHdr.dataset.subLabel = combinedSubId;  // subIdとして使用（TEMP命名・復元キー）
         subHdr.innerHTML = '<div class="sub-bar"></div><div class="sub-label">' + esc(lbl) + '</div><span class="sub-count"></span><span class="sub-arrow">▶</span>';
         const subBd = document.createElement('div'); subBd.className = 'sub-body';
         subHdr.addEventListener('click', () => {
