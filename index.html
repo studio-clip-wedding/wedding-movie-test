@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.9 -->
+<!-- FORM VERSION: v2.3.10 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.9</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.10</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -626,19 +626,20 @@ body{padding-top:40px}
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.20.001
-// FORM VERSION: v2.3.9
+// GENERATOR VERSION: 2026.06.20.002
+// FORM VERSION: v2.3.10
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
-// v2.3.9: 人物特定の確定時にマットを自動TEMP保存（再送時にマットが必ず復元・送信されるように）
+// v2.3.9: （撤回）人物特定確定時の自動TEMP保存
+// v2.3.10: 人物特定確定は自動保存せず保存トリガー（未保存表示）のみに。本物マット保護はGAS側(v2.2.15)で対応
 // COLUMN MAP (v7)
 // A=0:title B=1:hint C=2:required D=3:type
 // E=4:maxLen F=5:typeSpec G=6:blockCfg H=7:filePrefix
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.9';
+const _FORM_VERSION = 'v2.3.10';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2278,16 +2279,11 @@ function idApply() {
     document.body.style.overflow = '';
     if (_idCallback) _idCallback(blob);
     _idCallback = null;
-    // 人物特定確定後にTEMP保存（_tempSavedリセット）
+    // 人物特定確定後はTEMP保存対象としてマーク（_tempSavedリセット）し、
+    // 「未保存の変更があります（保存してください）」を表示する保存トリガーのみ行う。
+    // ※自動保存はしない。ユーザーが「保存する」を押した時に本物マットがTEMPへ保存される。
     if (window._idTargetTrigger) window._idTargetTrigger._tempSaved = false;
     markDirty();
-    // ★人物特定したマットを即TEMP保存する（手動「保存」を待たずに永続化）。
-    //   これをしないと、特定後に保存せず送信した場合マットがTEMPに残らず、
-    //   再送（再読込→復元）でマットが復元できず送信されない。
-    //   少し遅延させ、各確定経路（直接/クロップ経由）で _idBlob がセットされた後に保存する。
-    setTimeout(() => {
-      if (window._currentUser && typeof saveAll === 'function') saveAll(true);
-    }, 600);
   }, 'image/png');
 }
 
