@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.10 -->
+<!-- FORM VERSION: v2.3.11 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.10</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.11</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -626,20 +626,21 @@ body{padding-top:40px}
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.20.002
-// FORM VERSION: v2.3.10
+// GENERATOR VERSION: 2026.06.22.001
+// FORM VERSION: v2.3.11
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
 // v2.3.9: （撤回）人物特定確定時の自動TEMP保存
 // v2.3.10: 人物特定確定は自動保存せず保存トリガー（未保存表示）のみに。本物マット保護はGAS側(v2.2.15)で対応
+// v2.3.11: 確認画面の写真行からファイル名＋アイコンを削除（特定時は特定済みバッジのみ）／ログアウト時に送信完了・確認画面を隠す／再送ロックのパスワード入力を伏せ字にしない
 // COLUMN MAP (v7)
 // A=0:title B=1:hint C=2:required D=3:type
 // E=4:maxLen F=5:typeSpec G=6:blockCfg H=7:filePrefix
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.10';
+const _FORM_VERSION = 'v2.3.11';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1558,8 +1559,8 @@ function renderBlockConfirm(block, bi, secDiv) {
     const lbl = document.createElement('div'); lbl.className = 'confirm-lbl'; lbl.textContent = '写真';
     const val = document.createElement('div'); val.className = 'confirm-val';
     const img = document.createElement('img'); img.className = 'confirm-thumb'; img.src = thumb.src; img.onclick=()=>openLightbox(thumb.src);
-    const fn = document.createElement('div'); fn.className = 'confirm-file'; fn.style.marginTop='4px'; fn.textContent = '🖼 ' + fileName;
-    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; t.textContent='特定済み'; fn.appendChild(t); }
+    const fn = document.createElement('div'); fn.className = 'confirm-file'; fn.style.marginTop='4px';
+    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;'; t.textContent='特定済み'; fn.appendChild(t); }
     val.appendChild(img); val.appendChild(fn);
     row.appendChild(lbl); row.appendChild(val); secDiv.appendChild(row);
   } else if (fileInp && fileInp.files && fileInp.files[0]) {
@@ -1568,8 +1569,8 @@ function renderBlockConfirm(block, bi, secDiv) {
     const lbl = document.createElement('div'); lbl.className = 'confirm-lbl'; lbl.textContent = '写真';
     const val = document.createElement('div'); val.className = 'confirm-val';
     const fr2 = new FileReader(); fr2.onload = e => { const img = document.createElement('img'); img.className = 'confirm-thumb'; img.src = e.target.result; img.onclick=()=>openLightbox(e.target.result); val.insertBefore(img, val.firstChild); }; fr2.readAsDataURL(f);
-    const fn = document.createElement('div'); fn.className = 'confirm-file'; fn.textContent = '🖼 ' + f.name;
-    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;margin-left:6px;'; t.textContent='特定済み'; fn.appendChild(t); }
+    const fn = document.createElement('div'); fn.className = 'confirm-file';
+    if (block.querySelector('.id-badge')) { const t = document.createElement('span'); t.style.cssText='font-size:11px;color:#fff;background:var(--a);border-radius:999px;padding:1px 8px;'; t.textContent='特定済み'; fn.appendChild(t); }
     val.appendChild(fn);
     row.appendChild(lbl); row.appendChild(val); secDiv.appendChild(row);
   }
@@ -2803,6 +2804,11 @@ function updateLoginUI(user) {
     if (userName)  userName.textContent    = '';
     const formScreen = document.getElementById('form-screen');
     if (formScreen) formScreen.style.setProperty('display', 'none', 'important');
+    // 送信完了画面・確認画面が出ていたら隠す（ログイン画面とオーバーレイが重なるのを防ぐ）
+    const successScreen = document.getElementById('success-screen');
+    if (successScreen) successScreen.style.display = 'none';
+    const confirmScreen = document.getElementById('confirm-screen');
+    if (confirmScreen) confirmScreen.style.display = 'none';
     hideSaveBar();  // 保存バーを非表示
     if (typeof hideLockScreen === 'function') hideLockScreen();  // 工程1: ロック画面も隠す
     _tempImagesRestored = false;  // ログアウト時にリセット
@@ -2886,7 +2892,7 @@ function showLockScreen() {
     ov.innerHTML =
       '<div style="font-size:1.3rem;font-weight:500;color:var(--f,#1c1a17);letter-spacing:.05em">送信が完了しました</div>' +
       '<div style="font-size:.85rem;color:var(--b3,#8a8378);text-align:center;line-height:1.8">内容の修正が必要な場合は、担当者からお伝えする<br>再送信パスワードを入力してください。</div>' +
-      '<input id="resend-lock-input" type="password" placeholder="再送信パスワード" autocomplete="off" ' +
+      '<input id="resend-lock-input" type="text" placeholder="再送信パスワード" autocomplete="off" ' +
       'style="padding:11px 16px;border:1px solid var(--bs,#d8d2c6);border-radius:8px;font-size:14px;width:240px;max-width:80vw;text-align:center;font-family:inherit">' +
       '<button id="resend-lock-btn" ' +
       'style="padding:11px 28px;border-radius:8px;border:none;background:var(--a,#8b7355);color:#fff;cursor:pointer;font-size:14px;font-family:inherit">ロックを解除</button>' +
