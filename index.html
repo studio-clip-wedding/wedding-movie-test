@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.20 -->
+<!-- FORM VERSION: v2.3.21 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.20</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.21</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -636,8 +636,8 @@ https://isum.or.jp/music/</div></div><div class="field"><div class="field-lbl-ro
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.26.004
-// FORM VERSION: v2.3.20
+// GENERATOR VERSION: 2026.06.26.005
+// FORM VERSION: v2.3.21
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -650,7 +650,7 @@ https://isum.or.jp/music/</div></div><div class="field"><div class="field-lbl-ro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.20';
+const _FORM_VERSION = 'v2.3.21';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2847,11 +2847,16 @@ async function refreshMattoDisplay(uid) {
               idTrigger._idBlob    = new Blob([bytes], { type: 'image/png' });
               idTrigger._tempSaved = true;
             }
+            if (wrap) wrap._savedMattoHash = _quickHash(mattoInfo.base64);  // 既存マットの指紋を保持→無変更なら再送しない
             updateIdBadge(wrap, idTrigger);
           } else {
-            // 透明マット → 特定なし
+            // 透明マット → 特定なし（既にTEMPに透明があるので指紋を保持し、保存トリガーで再送しない）
             idTrigger._idBlob = null;
             idTrigger._idName = null;
+            if (mattoInfo && mattoInfo.base64 && wrap) {
+              wrap._savedMattoHash = _quickHash(mattoInfo.base64);
+              idTrigger._tempSaved = true;
+            }
             updateIdBadge(wrap, idTrigger);
           }
         });
@@ -3225,6 +3230,7 @@ async function restoreTempImages(uid) {
       del.onclick = () => {
         list.innerHTML = '';
         if (wrap) unlockPair(wrap);
+        markDirty();
         setTimeout(() => {
           markSlotEmptyTemp(wrap);
           const bi = wrap?.closest('.block-item'); if (bi) applyBlockSlotLocks(bi);
@@ -3294,6 +3300,7 @@ async function restoreTempImages(uid) {
           idTrigger._idBlob    = mattoBlob;
           idTrigger._idName    = mf.fileName;
           idTrigger._tempSaved = true;
+          if (wrap) wrap._savedMattoHash = _quickHash(mf.base64);  // 既存マットの指紋を保持→無変更なら再送しない
           const oldBadge = list.querySelector('.id-badge');
           if (oldBadge) oldBadge.remove();
           // サムネイルにバッジを重ねる
@@ -3334,6 +3341,11 @@ async function restoreTempImages(uid) {
           };
           idTrigger.after(idDelBtn);
         }
+      } else if (mattoFile && mattoFile.isTransparent && !isVideoFile) {
+        // 透明マット（特定なし）が既にTEMPにある → 指紋を保持し、保存トリガーで再送しない
+        const idT = wrap?.querySelector('.id-trigger-btn');
+        if (idT) { idT._idBlob = null; idT._tempSaved = true; }
+        if (wrap && mattoFile.base64) wrap._savedMattoHash = _quickHash(mattoFile.base64);
       }
         }); // file-list forEach
       }); // block-item forEach
