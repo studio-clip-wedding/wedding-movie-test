@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.17 -->
+<!-- FORM VERSION: v2.3.18 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -503,7 +503,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.17</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.18</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -636,8 +636,8 @@ https://isum.or.jp/music/</div></div><div class="field"><div class="field-lbl-ro
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.26.001
-// FORM VERSION: v2.3.17
+// GENERATOR VERSION: 2026.06.26.002
+// FORM VERSION: v2.3.18
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -650,7 +650,7 @@ https://isum.or.jp/music/</div></div><div class="field"><div class="field-lbl-ro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.17';
+const _FORM_VERSION = 'v2.3.18';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1045,8 +1045,11 @@ function buildFileField(id, cropRatioStr, withIdentification) {
   function clearImg() {
     inp.value = ''; list.innerHTML = '';
     unlockPair(wrap);
-    // 画像削除をGASに通知（削除フラグ付きで送信）
-    setTimeout(() => triggerTempDelete(id), 500);
+    // このスロットを透明素材で上書き（正しいスロットキーで・復活防止）＋段階ロック再計算
+    setTimeout(() => {
+      markSlotEmptyTemp(wrap);
+      const bi = wrap.closest('.block-item'); if (bi) applyBlockSlotLocks(bi);
+    }, 300);
   }
 
   inp.addEventListener('change', () => {
@@ -1208,7 +1211,13 @@ function buildVideoField(id) {
   zone.appendChild(inp); zone.appendChild(p); wrap.appendChild(zone);
   const list = document.createElement('div'); list.className = 'file-list'; wrap.appendChild(list);
 
-  function clearVid() { inp.value = ''; list.innerHTML = ''; unlockPair(wrap); markDirty(); }
+  function clearVid() {
+    inp.value = ''; list.innerHTML = ''; unlockPair(wrap); markDirty();
+    setTimeout(() => {
+      markSlotEmptyTemp(wrap);
+      const bi = wrap.closest('.block-item'); if (bi) applyBlockSlotLocks(bi);
+    }, 300);
+  }
 
   inp.addEventListener('change', () => {
     if (!inp.files[0]) return;
@@ -1242,7 +1251,7 @@ function applyBlockSlotLocks(blockItem) {
   const slots = {};
   wraps.forEach(w => { const s = w._slot || 1; (slots[s] = slots[s] || []).push(w); });
   const nums = Object.keys(slots).map(Number).sort((a, b) => a - b);
-  const filled = w => { const i = w.querySelector('input[type=file]'); return !!(i && i.files && i.files.length > 0); };
+  const filled = w => { const l = w.querySelector('.file-list'); return !!(l && l.querySelector('.file-item')); };
   const slotFilled = s => (slots[s] || []).some(filled);
   nums.forEach(s => {
     const stagedLock  = (s >= 2) && !slotFilled(s - 1);   // 前スロット未入稿
@@ -1382,8 +1391,7 @@ function renderBlock(parent, rows, cfg, subHdr, subPrefix) {
         if (!slots.size) slots.add(1);
         setTimeout(() => {
           slots.forEach(s => {
-            const sfx = s >= 2 ? '-' + String(s).padStart(2, '0') : '';
-            const fid = subId + '_' + (lastIdx + 1) + '_素材' + sfx;
+            const fid = tempKeyFor(subId, lastIdx + 1, s);
             triggerTempDelete(fid);
             triggerTempDelete(fid + '_matto');
           });
@@ -2588,9 +2596,6 @@ async function triggerTempSwap(blockA, blockB, silent = false) {
   const idxB  = items.indexOf(blockB);
   if (idxA === -1 || idxB === -1) return;
 
-  const keyA = subId + '_' + (idxA + 1) + '_素材';
-  const keyB = subId + '_' + (idxB + 1) + '_素材';
-
   // 複数枚ブロックの全スロット分（1枚目=枝なし, 2枚目以降=-02…）を入れ替え
   const slots = new Set();
   blockA.querySelectorAll('.file-wrap').forEach(w => slots.add(w._slot || 1));
@@ -2599,8 +2604,9 @@ async function triggerTempSwap(blockA, blockB, silent = false) {
 
   try {
     for (const s of slots) {
-      const sfx = s >= 2 ? '-' + String(s).padStart(2, '0') : '';
-      for (const suffix of [sfx, sfx + '_matto']) {
+      const keyA = tempKeyFor(subId, idxA + 1, s);
+      const keyB = tempKeyFor(subId, idxB + 1, s);
+      for (const suffix of ['', '_matto']) {
         await fetch(window._gasUrl, {
           method: 'POST',
           body: JSON.stringify({
@@ -2651,6 +2657,50 @@ async function triggerTempDelete(fieldId) {
   }
 }
 
+// ===== TEMP保存キー生成（枝はブロック番号の直後。1枚目=枝なし, 2枚目=-02…） =====
+// 例: subId_1_素材（1枚目） / subId_1-02_素材（2枚目） / subId_1-02_素材_matto
+function tempKeyFor(subId, blockNum1, slot) {
+  const sfx = (slot && slot >= 2) ? '-' + String(slot).padStart(2, '0') : '';
+  return subId + '_' + blockNum1 + sfx + '_素材';
+}
+
+// wrap要素からそのスロットのTEMPキーを求める
+function tempKeyFromWrap(wrap) {
+  if (!wrap) return null;
+  const grp = wrap.closest('.block-grp');
+  const blockItem = wrap.closest('.block-item');
+  if (!grp || !blockItem) return null;
+  const subId = grp.dataset.subId || 'grp';
+  const items = Array.from(grp.querySelectorAll('.block-item'));
+  const blockIdx = items.indexOf(blockItem);
+  if (blockIdx < 0) return null;
+  return tempKeyFor(subId, blockIdx + 1, wrap._slot || 1);
+}
+
+// 写真/動画削除時：そのスロットを透明素材＋透明マットで上書き（復活防止＋空マーカー）
+function markSlotEmptyTemp(wrap) {
+  if (!window._currentUser || !window._gasUrl || !window._tempFolderId) return;
+  const key = tempKeyFromWrap(wrap);
+  if (!key) return;
+  const blob = makeTransparentBlob();
+  const reader = new FileReader();
+  reader.onload = e => {
+    const base64 = e.target.result.split(',')[1];
+    fetch(window._gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'tempSave', uid: window._currentUser.uid,
+        tempFolderId: window._tempFolderId,
+        files: [
+          { fieldId: key,            fileName: key + '.jpg',         base64, mimeType: 'image/jpeg', isMatto: false },
+          { fieldId: key + '_matto', fileName: key + '_matto.png',   base64, mimeType: 'image/png',  isMatto: true  },
+        ]
+      })
+    }).catch(err => console.warn('スロット空化エラー:', err));
+  };
+  reader.readAsDataURL(blob);
+}
+
 // ===== doTempSave（未保存ファイルをまとめて送信） =====
 async function doTempSave() {
   const user = window._currentUser;
@@ -2669,8 +2719,7 @@ async function doTempSave() {
         const fieldLabel = '素材';
         const ext        = item._blob.type.includes('video') ? '.mp4' : '.jpg';
         const slot       = wrap?._slot || 1;
-        const slotSfx    = slot >= 2 ? '-' + String(slot).padStart(2, '0') : '';  // 1枚目枝なし/2枚目から-02
-        const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel + slotSfx;
+        const fieldId    = tempKeyFor(subId, blockIdx + 1, slot);  // subId_1_素材 / subId_1-02_素材
         const fileName   = fieldId + ext;
 
         if (!item._tempSaved) {
@@ -2761,7 +2810,8 @@ async function refreshMattoDisplay(uid) {
           const inp  = wrap?.querySelector('input[type=file]');
           if (!inp || inp.accept?.includes('video')) return;
 
-          const fieldId   = subId + '_' + (blockIdx + 1) + '_素材';
+          const slot      = wrap?._slot || 1;
+          const fieldId   = tempKeyFor(subId, blockIdx + 1, slot);
           const mattoKey  = fieldId + '_matto';
           const mattoInfo = mattoMap[mattoKey];
           const idTrigger = wrap.querySelector('.id-trigger-btn');
@@ -3123,8 +3173,7 @@ async function restoreTempImages(uid) {
           const isVideo    = inp.accept?.includes('video');
           const fieldLabel = '素材';
           const slot       = wrap?._slot || 1;
-          const slotSfx    = slot >= 2 ? '-' + String(slot).padStart(2, '0') : '';  // 保存側と同じ規則
-          const fieldId    = subId + '_' + (blockIdx + 1) + '_' + fieldLabel + slotSfx;
+          const fieldId    = tempKeyFor(subId, blockIdx + 1, slot);  // 保存側と同じ
           const f          = fileMap[fieldId];
           if (!f) return;
           if (f.isTransparent) return;  // 透明素材（空ブロック）はスキップ
@@ -3153,7 +3202,10 @@ async function restoreTempImages(uid) {
       del.onclick = () => {
         list.innerHTML = '';
         if (wrap) unlockPair(wrap);
-        setTimeout(() => triggerTempDelete(fieldId), 500);
+        setTimeout(() => {
+          markSlotEmptyTemp(wrap);
+          const bi = wrap?.closest('.block-item'); if (bi) applyBlockSlotLocks(bi);
+        }, 300);
       };
 
       if (blob.type.startsWith('image/')) {
@@ -3266,23 +3318,8 @@ async function restoreTempImages(uid) {
 
     console.log('TEMP画像復元完了: ' + result.files.length + '件');
 
-    // 復元後に各ブロックの排他状態を再チェック
-    document.querySelectorAll('.block-item').forEach(block => {
-      const wraps = block.querySelectorAll('.file-wrap');
-      let hasPhoto = false, hasVideo = false, photoWrap = null, videoWrap = null;
-      wraps.forEach(w => {
-        const inp = w.querySelector('input[type=file]');
-        const list = w.querySelector('.file-list');
-        if (!inp || !list) return;
-        const isVideo = inp.accept && inp.accept.includes('video');
-        if (list.children.length > 0) {
-          if (isVideo) { hasVideo = true; videoWrap = w; }
-          else { hasPhoto = true; photoWrap = w; }
-        }
-      });
-      if (hasPhoto && photoWrap) lockPair(photoWrap, '写真が入稿済みのため、動画は入稿できません。写真を削除してください。');
-      else if (hasVideo && videoWrap) lockPair(videoWrap, '動画が入稿済みのため、写真は入稿できません。動画を削除してください。');
-    });
+    // 復元後に各ブロックの排他＋段階ロックを再計算（スロット単位）
+    document.querySelectorAll('.block-item').forEach(block => applyBlockSlotLocks(block));
   } catch(e) {
     console.warn('TEMP復元リクエストエラー:', e);
   }
