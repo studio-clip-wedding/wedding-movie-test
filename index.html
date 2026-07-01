@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.27 -->
+<!-- FORM VERSION: v2.3.28 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -504,7 +504,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.27</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.28</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -524,7 +524,7 @@ body{padding-top:40px}
     </div>
   </div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ProfileMovie_More 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -562,7 +562,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -637,8 +637,8 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.29.005
-// FORM VERSION: v2.3.27
+// GENERATOR VERSION: 2026.06.30.001
+// FORM VERSION: v2.3.28
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -651,7 +651,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.27';
+const _FORM_VERSION = 'v2.3.28';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1454,37 +1454,38 @@ function lockPair(activeWrap, msg) {
   // ブロック内はスロット単位で再計算（複数枚ブロックでの誤ロックを防ぐ＋段階ロック）
   const blockItem = activeWrap.closest('.block-item');
   if (blockItem) { applyBlockSlotLocks(blockItem); return; }
-  // ブロック外（単発・セクション直下）は従来どおり
-  const block = activeWrap.closest('.sec-block');
-  if (!block) return;
-  block.querySelectorAll('.file-wrap').forEach(w => {
+  // ブロック外（単発・冒頭/ファースト/ラストカット等）は各欄が独立。
+  // 同じ .field 内に写真と動画の両方の入力がある場合のみ、相方をロックする。
+  const field = activeWrap.closest('.field');
+  if (!field) return;
+  const activeInp = activeWrap.querySelector('input[type=file]');
+  const activeIsVideo = activeInp && /video/i.test(activeInp.accept || '');
+  field.querySelectorAll('.file-wrap').forEach(w => {
     if (w === activeWrap) return;
-    const z = w.querySelector('.upload-zone');
     const inp2 = w.querySelector('input[type=file]');
-    if (!inp2 || (inp2.files && inp2.files.length > 0)) return;
+    if (!inp2) return;
+    const wIsVideo = /video/i.test(inp2.accept || '');
+    if (wIsVideo === activeIsVideo) return;           // 同種（写真同士・動画同士）はロックしない
+    if (inp2.files && inp2.files.length > 0) return;  // 既に入っている欄は触らない
+    const z = w.querySelector('.upload-zone');
     if (z) z.classList.add('disabled');
-    if (inp2) inp2.disabled = true;
+    inp2.disabled = true;
     let note = w.querySelector('.excl-note');
     if (!note) { note = document.createElement('div'); note.className = 'excl-note'; w.appendChild(note); }
     note.textContent = msg;
-    // badge swap
-    const field = w.closest('.field');
-    if (field) { const b = field.querySelector('.badge-req'); if (b) { b.className = 'badge-opt'; b.textContent = '任意'; b.dataset.wasReq = '1'; } }
   });
 }
 
 function unlockPair(wrap) {
   const blockItem = wrap.closest('.block-item');
   if (blockItem) { applyBlockSlotLocks(blockItem); return; }
-  const block = wrap.closest('.sec-block');
-  if (!block) return;
-  block.querySelectorAll('.file-wrap').forEach(w => {
+  const field = wrap.closest('.field');
+  if (!field) return;
+  field.querySelectorAll('.file-wrap').forEach(w => {
     const z = w.querySelector('.upload-zone'); const inp2 = w.querySelector('input[type=file]');
     if (z) z.classList.remove('disabled');
     if (inp2) inp2.disabled = false;
     const note = w.querySelector('.excl-note'); if (note) note.remove();
-    const field = w.closest('.field');
-    if (field) { const b = field.querySelector('.badge-opt[data-was-req]'); if (b) { b.className = 'badge-req'; b.textContent = '必須'; delete b.dataset.wasReq; } }
   });
 }
 
@@ -1905,6 +1906,7 @@ function renderBlockConfirm(block, bi, secDiv) {
     block.querySelectorAll(sel).forEach(el => {
       if (!el.id || !el.value) return;
       const fieldEl = el.closest('.field');
+      if (isBranchHidden(fieldEl)) return;  // 分岐で非表示はスキップ
       const lbl2 = fieldEl ? fieldEl.querySelector('.field-lbl') : null;
       if (!lbl2) return;
       const row = document.createElement('div'); row.className = 'confirm-row';
@@ -2074,6 +2076,8 @@ function showConfirm(){
     // ブロックがあるセクションはブロック単位で処理
     const blockItems = secEl.querySelectorAll('.block-item');
 
+    if (secEl.classList.contains('branch-hidden')) return;  // 分岐で非表示のセクションは確認画面に出さない
+
     if (blockItems.length > 0) {
       // ブロックあり: サブセクションごとに区切る
       const secDiv = document.createElement('div'); secDiv.className = 'confirm-section';
@@ -2119,6 +2123,8 @@ function showConfirm(){
       const fields = [];
       secEl.querySelectorAll('input:not([type=file]), select, textarea').forEach(el => {
         if (!el.id) return;
+        const fieldElChk = el.closest('.field');
+        if (isBranchHidden(fieldElChk)) return;  // 分岐で非表示はスキップ
         let val = '';
         if (el.type === 'checkbox') { if (!el.checked) return; val = el.value; }
         else if (el.type === 'radio') { if (!el.checked) return; val = el.value; }
@@ -2978,6 +2984,30 @@ async function doTempSave() {
     });
   });
 
+  // 単発ファイル（ブロック外：冒頭/ファースト/ラストカット等）もTEMP保存
+  document.querySelectorAll('.field').forEach(fieldEl => {
+    if (fieldEl.closest('.block-grp')) return;
+    const list = fieldEl.querySelector('.file-list');
+    if (!list) return;
+    const item = list.querySelector('.file-item');
+    if (!item || !item._blob) return;
+    const wrap = list.closest('.file-wrap');
+    const inp  = wrap?.querySelector('input[type=file]');
+    const key  = 'single_' + (wrap?._resolvedPrefix || fieldEl.dataset.defrow || inp?.id || 'x');
+    const ext  = item._blob.type.includes('video') ? '.mp4' : '.jpg';
+    if (!item._tempSaved) {
+      files.push({ fieldId: key, fileName: key + ext, blobRef: item._blob, _item: item,
+        mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
+    }
+    const idTrigger = wrap?.querySelector('.id-trigger-btn');
+    if (idTrigger && !idTrigger._tempSaved) {
+      const mattoKey = key + '_matto';
+      files.push({ fieldId: mattoKey, fileName: mattoKey + '.png',
+        blobRef: idTrigger._idBlob || makeTransparentBlob(), _trigger: idTrigger, _wrap: wrap,
+        mimeType: 'image/png', isMatto: true, base64: null });
+    }
+  });
+
   if (!files.length) return;
 
   await Promise.all(files.map(f => new Promise(resolve => {
@@ -3576,6 +3606,49 @@ async function restoreTempImages(uid) {
         }); // file-list forEach
       }); // block-item forEach
     }); // block-grp forEach
+
+    // 単発ファイル（ブロック外：冒頭/ファースト/ラストカット等）の復元
+    document.querySelectorAll('.field').forEach(fieldEl => {
+      try {
+        if (fieldEl.closest('.block-grp')) return;
+        const list = fieldEl.querySelector('.file-list');
+        if (!list) return;
+        if (list.querySelector('.file-item')) return;  // 既にあればスキップ
+        const wrap = list.closest('.file-wrap');
+        const inp  = wrap?.querySelector('input[type=file]');
+        if (!inp) return;
+        const key = 'single_' + (wrap?._resolvedPrefix || fieldEl.dataset.defrow || inp.id || 'x');
+        const f   = fileMap[key];
+        if (!f || f.isTransparent) return;
+        const isVideoSlot = inp.accept?.includes('video');
+        const isVideoFile = f.mimeType && f.mimeType.includes('video');
+        if (isVideoSlot !== isVideoFile) return;
+
+        const byteChars = atob(f.base64);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArr], { type: f.mimeType });
+
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item._blob = blob; item._name = f.fileName;
+        item._resolvedPrefix = wrap?._resolvedPrefix || ''; item._fieldId = key; item._tempSaved = true;
+        const del = document.createElement('button');
+        del.className = 'file-del'; del.textContent = '✕'; del.type = 'button';
+        del.onclick = () => { list.innerHTML = ''; if (wrap) unlockPair(wrap); markDirty(); };
+        if (blob.type.startsWith('image/')) {
+          const url = URL.createObjectURL(blob);
+          const thumb = document.createElement('img'); thumb.className = 'crop-thumb'; thumb.src = url;
+          thumb.onclick = () => openLightbox(url); item.appendChild(thumb);
+        }
+        const name = document.createElement('span'); name.textContent = ' ' + f.fileName + ' ';
+        const size = document.createElement('span'); size.className = 'file-size';
+        size.textContent = (blob.size / 1024).toFixed(0) + ' KB';
+        item.appendChild(name); item.appendChild(size); item.appendChild(del);
+        list.appendChild(item);
+        if (wrap) lockPair(wrap, '写真が入稿済みのため、動画は入稿できません。写真を削除してください。');
+      } catch (_eSingle) { console.warn('単発ファイルの復元をスキップ:', _eSingle); }
+    });
 
     console.log('TEMP画像復元完了: ' + result.files.length + '件');
 
