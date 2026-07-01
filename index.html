@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.28 -->
+<!-- FORM VERSION: v2.3.29 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -504,7 +504,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.28</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.29</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -637,8 +637,8 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 <script>
 
 // ==============================================
-// GENERATOR VERSION: 2026.06.30.001
-// FORM VERSION: v2.3.28
+// GENERATOR VERSION: 2026.07.01.001
+// FORM VERSION: v2.3.29
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -651,7 +651,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.28';
+const _FORM_VERSION = 'v2.3.29';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1257,7 +1257,7 @@ function buildFileField(id, cropRatioStr, withIdentification) {
     }
 
     function continueProcess(targetFile) {
-      if (ratio && targetFile.type.startsWith('image/')) {
+      if (targetFile.type.startsWith('image/')) {
         openCrop(targetFile, cropRatioStr, ratio, (blob, mode) => {
           list.innerHTML = '';
           const label = mode === 'original' ? 'そのまま入稿' : 'トリミング済み';
@@ -1694,14 +1694,27 @@ function updateAdd(btn, grp, cfg, subHdr) {
 
 // ---------- Crop ----------
 let _cropCb = null, _cropRatio = null, _cropRatioActive = null, _cropFile = null, _cropWithId = false;
+const CROP_MAX_EDGE = 2500;  // トリミング/縮小後の長辺上限（px）
 let _cropBox = { x:0, y:0, w:0, h:0 }, _drag = null;
 
 function openCrop(file, ratioLabel, ratio, cb, withId) {
   _cropWithId = !!withId;
   _cropCb = cb; _cropRatio = ratio; _cropRatioActive = ratio; _cropFile = file;
-  document.getElementById('btn-ratio-fixed').textContent = ratioLabel || '比率';
-  document.getElementById('btn-ratio-fixed').classList.add('active');
-  document.getElementById('btn-ratio-free').classList.remove('active');
+  const btnFixed = document.getElementById('btn-ratio-fixed');
+  const btnFree  = document.getElementById('btn-ratio-free');
+  if (ratio) {
+    // 比率指定あり：固定比率をデフォルトに
+    btnFixed.textContent = ratioLabel || '比率';
+    btnFixed.style.display = '';
+    btnFixed.classList.add('active');
+    btnFree.classList.remove('active');
+  } else {
+    // 比率指定なし：フリートリミングのみ（固定比率ボタンは隠す）
+    _cropRatioActive = null;
+    btnFixed.style.display = 'none';
+    btnFixed.classList.remove('active');
+    btnFree.classList.add('active');
+  }
   const ov = document.getElementById('crop-overlay'); ov.style.display = 'flex';
   const _idBtn = document.getElementById('crop-btn-identify');
   if (_idBtn) _idBtn.style.display = _cropWithId ? '' : 'none';
@@ -1714,7 +1727,28 @@ function cropCancel() { document.getElementById('crop-overlay').style.display='n
 
 function cropSkip() {
   if (!_cropFile) { cropCancel(); return; }
-  const fr = new FileReader(); fr.onload = e => { const blob = new Blob([e.target.result],{type:_cropFile.type||'image/jpeg'}); if(_cropCb) _cropCb(blob,'original'); cropCancel(); }; fr.readAsArrayBuffer(_cropFile);
+  // 「そのまま入稿」でも長辺2500pxに縮小（原寸のままだとTEMP保存/送信が大きすぎるため）
+  const img = new Image();
+  const url = URL.createObjectURL(_cropFile);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const sc = Math.min(1, CROP_MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    if (sc >= 1) {
+      // 縮小不要 → そのまま
+      const fr = new FileReader(); fr.onload = e => { const blob = new Blob([e.target.result],{type:_cropFile.type||'image/jpeg'}); if(_cropCb) _cropCb(blob,'original'); cropCancel(); }; fr.readAsArrayBuffer(_cropFile);
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.naturalWidth * sc);
+    canvas.height = Math.round(img.naturalHeight * sc);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => { if(_cropCb) _cropCb(blob,'original'); cropCancel(); }, 'image/jpeg', 0.92);
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    const fr = new FileReader(); fr.onload = e => { const blob = new Blob([e.target.result],{type:_cropFile.type||'image/jpeg'}); if(_cropCb) _cropCb(blob,'original'); cropCancel(); }; fr.readAsArrayBuffer(_cropFile);
+  };
+  img.src = url;
 }
 
 function initCropBox() {
@@ -1774,9 +1808,11 @@ function cropApplyIdentify() {
   const ib = getIB();
   const c2 = document.createElement('canvas');
   const scaleX = img.naturalWidth / ib.w, scaleY = img.naturalHeight / ib.h;
-  c2.width = Math.round(_cropBox.w * scaleX); c2.height = Math.round(_cropBox.h * scaleY);
+  const sw = _cropBox.w * scaleX, sh = _cropBox.h * scaleY;
+  const sc = Math.min(1, CROP_MAX_EDGE/Math.max(sw,sh));  // 長辺2500pxに縮小
+  c2.width = Math.max(1,Math.round(sw*sc)); c2.height = Math.max(1,Math.round(sh*sc));
   const ctx2 = c2.getContext('2d');
-  ctx2.drawImage(img, (_cropBox.x - ib.x)*scaleX, (_cropBox.y - ib.y)*scaleY, _cropBox.w*scaleX, _cropBox.h*scaleY, 0, 0, c2.width, c2.height);
+  ctx2.drawImage(img, (_cropBox.x - ib.x)*scaleX, (_cropBox.y - ib.y)*scaleY, sw, sh, 0, 0, c2.width, c2.height);
   c2.toBlob(blob => {
     closeCrop();
     _idImgW = 0; _idImgH = 0;
@@ -1790,8 +1826,10 @@ function cropApply() {
   const img=document.getElementById('crop-img'); const ib=getIB();
   const sx=Math.round((_cropBox.x-ib.x)*(img.naturalWidth/ib.w)); const sy=Math.round((_cropBox.y-ib.y)*(img.naturalHeight/ib.h));
   const sw=Math.round(_cropBox.w*(img.naturalWidth/ib.w)); const sh=Math.round(_cropBox.h*(img.naturalHeight/ib.h));
-  const canvas=document.createElement('canvas'); canvas.width=sw; canvas.height=sh;
-  canvas.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+  const sc=Math.min(1, CROP_MAX_EDGE/Math.max(sw,sh));  // 長辺2500pxに縮小
+  const dw=Math.max(1,Math.round(sw*sc)), dh=Math.max(1,Math.round(sh*sc));
+  const canvas=document.createElement('canvas'); canvas.width=dw; canvas.height=dh;
+  canvas.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,dw,dh);
   canvas.toBlob(blob=>{if(_cropCb)_cropCb(blob,'cropped');cropCancel();},'image/jpeg',.92);
 }
 
@@ -2894,6 +2932,24 @@ function tempKeyFor(subId, blockNum1, slot) {
   return subId + '_' + blockNum1 + sfx + '_素材';
 }
 
+// 単発ファイル（ブロック外）のTEMPキー＝セクション名_識別子（案B）。保存・復元で共通利用。
+function singleTempKey(fieldEl) {
+  if (!fieldEl) return 'single_x';
+  let secName = '';
+  const secBlock = fieldEl.closest('.sec-block');
+  if (secBlock) {
+    const sc = ((typeof _secs !== 'undefined' && _secs) || []).find(s => s.id === secBlock.id);
+    secName = sc ? sc.label : (secBlock.dataset.defrow || '');
+  }
+  secName = String(secName).replace(/[【】]/g, '').trim() || 'sec';
+  const wrap  = fieldEl.querySelector('.file-wrap') || fieldEl;
+  const rp    = fieldEl._resolvedPrefix || wrap._resolvedPrefix || '';
+  const title = fieldEl.querySelector('.field-lbl')?.textContent?.replace(/必須|任意/g, '').trim() || '';
+  const inp   = fieldEl.querySelector('input[type=file]');
+  const ident = rp || title || fieldEl.dataset.defrow || (inp ? inp.id : 'x');
+  return secName + '_' + ident;
+}
+
 // wrap要素からそのスロットのTEMPキーを求める
 function tempKeyFromWrap(wrap) {
   if (!wrap) return null;
@@ -2993,7 +3049,7 @@ async function doTempSave() {
     if (!item || !item._blob) return;
     const wrap = list.closest('.file-wrap');
     const inp  = wrap?.querySelector('input[type=file]');
-    const key  = 'single_' + (wrap?._resolvedPrefix || fieldEl.dataset.defrow || inp?.id || 'x');
+    const key  = singleTempKey(fieldEl);
     const ext  = item._blob.type.includes('video') ? '.mp4' : '.jpg';
     if (!item._tempSaved) {
       files.push({ fieldId: key, fileName: key + ext, blobRef: item._blob, _item: item,
@@ -3617,7 +3673,7 @@ async function restoreTempImages(uid) {
         const wrap = list.closest('.file-wrap');
         const inp  = wrap?.querySelector('input[type=file]');
         if (!inp) return;
-        const key = 'single_' + (wrap?._resolvedPrefix || fieldEl.dataset.defrow || inp.id || 'x');
+        const key = singleTempKey(fieldEl);
         const f   = fileMap[key];
         if (!f || f.isTransparent) return;
         const isVideoSlot = inp.accept?.includes('video');
