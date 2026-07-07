@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.43 -->
+<!-- FORM VERSION: v2.3.44 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -508,7 +508,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.43</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.44</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -528,7 +528,7 @@ body{padding-top:40px}
     </div>
   </div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap">
+  <div class="sticky-wrap" style="top: 72px;">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ProfileMovie_More 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -566,7 +566,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap">
+  <div class="sticky-wrap" style="top: 72px;">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -642,7 +642,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 
 // ==============================================
 // GENERATOR VERSION: 2026.07.02.007
-// FORM VERSION: v2.3.43
+// FORM VERSION: v2.3.44
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -655,7 +655,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.43';
+const _FORM_VERSION = 'v2.3.44';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2560,7 +2560,8 @@ async function collectAndSend(gasUrl) {
     basic,
     blocks,
     files: validFiles,
-    confirmLayout: window._confirmLayout || []
+    confirmLayout: window._confirmLayout || [],
+    uid: window._restoreUid || (window._currentUser && window._currentUser.uid) || ''
   };
 
   const res = await fetch(gasUrl, {
@@ -3604,10 +3605,18 @@ async function unlockForm() {
   hideLockScreen();
 }
 // ログイン時にロック状態を確認し、ロック中ならパスワード画面を出す
+// FirestoreロックとGAS側ロック(_locked.json)のどちらかがロックならロック（管理者の復元再送でもかかる）
 async function checkLockOnLogin(uid) {
-  const state = await readLockState(uid);
-  if (state && state.locked) showLockScreen();
-  else hideLockScreen();
+  let locked = false;
+  try { const state = await readLockState(uid); if (state && state.locked) locked = true; } catch(e) {}
+  if (!locked) {
+    try {
+      const res = await fetch(window._gasUrl, { method: 'POST', body: JSON.stringify({ action: 'checkLock', tempFolderId: window._tempFolderId || '', uid: uid }) });
+      const r = await res.json();
+      if (r.status === 'ok' && r.locked) locked = true;
+    } catch(e) {}
+  }
+  if (locked) showLockScreen(); else hideLockScreen();
 }
 
 // ========== お客様情報の復元（管理者） ==========
