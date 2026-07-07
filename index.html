@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.41 -->
+<!-- FORM VERSION: v2.3.42 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -508,7 +508,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.41</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.42</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -642,7 +642,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 
 // ==============================================
 // GENERATOR VERSION: 2026.07.02.007
-// FORM VERSION: v2.3.41
+// FORM VERSION: v2.3.42
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -655,7 +655,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.41';
+const _FORM_VERSION = 'v2.3.42';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -2363,8 +2363,11 @@ async function submitForm(){
     document.getElementById('success-screen').style.display = 'flex';
     try{localStorage.removeItem(SAVE_KEY);}catch(e){}
     // 工程1: 送信成功後にロックをかける（次回開いたときパスワード画面になる）
-    const user = window._currentUser;
-    if (user) lockAfterSubmit(user.uid);
+    //   復元モードなら復元対象uid（そのお客様）にロックを立てる
+    const lockUid = window._restoreUid || (window._currentUser && window._currentUser.uid);
+    if (lockUid) lockAfterSubmit(lockUid);
+    // 復元モードを解除
+    window._restoreUid = null; window._isRestoreMode = false;
   }).catch(err => {
     if (overlay) overlay.classList.remove('active');
     alert('送信に失敗しました。\n' + err.message);
@@ -3108,8 +3111,9 @@ function _quickHash(str) {
 
 // ===== doTempSave（未保存ファイルをまとめて送信） =====
 async function doTempSave() {
-  const user = window._currentUser;
-  if (!user || !window._gasUrl) return;
+  // 復元モードなら復元対象uid、通常はログインuid。復元モードは未ログインでも動く
+  const uid = window._restoreUid || (window._currentUser && window._currentUser.uid);
+  if (!uid || !window._gasUrl) return;
 
   const files = [];
   document.querySelectorAll('.block-grp').forEach(grp => {
@@ -3199,7 +3203,7 @@ async function doTempSave() {
     }
     return true;
   });
-  if (!validFiles.length) return;
+  // ファイルが無くても meta/formdata は保存する（テキストのみ入力・画像が用意できないケース対応）
 
   showTempSaveIndicator(true);
   // 復元一覧用メタ（商品名・両家名・更新日時）を一緒に保存
@@ -3230,7 +3234,7 @@ async function doTempSave() {
     const res = await fetch(window._gasUrl, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'tempSave', uid: user.uid,
+        action: 'tempSave', uid: uid,
         tempFolderId: window._tempFolderId || '',
         meta: meta,
         formValues: formValues,
