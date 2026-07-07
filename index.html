@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.44 -->
+<!-- FORM VERSION: v2.3.47 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -274,7 +274,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 #form-screen{padding-bottom:60px}
 
 /* ===== ログインバー ===== */
-#login-bar{position:fixed;top:0;left:0;right:0;height:40px;background:var(--w);display:flex;align-items:center;justify-content:flex-end;padding:0 1rem;gap:10px;z-index:200;font-size:12px;color:var(--k);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+#login-bar{position:fixed;top:0;left:0;right:0;height:40px;background:var(--w);display:flex;align-items:center;justify-content:flex-end;padding:0 1rem;gap:10px;z-index:10000;font-size:12px;color:var(--k);box-shadow:0 1px 4px rgba(0,0,0,.1)}
 #login-bar .user-name{color:var(--m);font-size:11px}
 #login-btn{padding:4px 14px;border-radius:4px;border:none;background:#22C55E;color:#fff;cursor:pointer;font-size:12px}
 #logout-btn{padding:4px 12px;border-radius:4px;border:none;background:#3B82F6;color:#fff;cursor:pointer;font-size:12px}
@@ -508,7 +508,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.44</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.47</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -528,7 +528,7 @@ body{padding-top:40px}
     </div>
   </div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ProfileMovie_More 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -566,7 +566,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -642,7 +642,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 
 // ==============================================
 // GENERATOR VERSION: 2026.07.02.007
-// FORM VERSION: v2.3.44
+// FORM VERSION: v2.3.47
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -655,7 +655,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.44';
+const _FORM_VERSION = 'v2.3.47';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -941,6 +941,9 @@ function buildForm(rows, productName, adminPass) {
     // 既存タイトルをそのまま使用
     document.title = titleEl.textContent;
   }
+  // ログイン画面のタイトルも「商品名 入稿フォーム」に
+  const gateTitleEl = document.querySelector('#login-gate .gate-title');
+  if (gateTitleEl && productName) gateTitleEl.textContent = productName + ' 入稿フォーム';
 
   let sections = [];
   let cur = null;
@@ -3220,6 +3223,7 @@ async function doTempSave() {
     productName: window._productName || document.getElementById('form-title')?.textContent?.replace(' 入稿フォーム', '') || '',
     groom: (_getVal('新郎 苗字（漢字）') + ' ' + _getVal('新郎 名前（漢字）')).trim(),
     bride: (_getVal('新婦 苗字（漢字）') + ' ' + _getVal('新婦 名前（漢字）')).trim(),
+    ceremonyDate: _getVal('挙式日'),
     updatedAt: new Date().toISOString(),
   };
   // 全フィールド値（テキスト/選択）も保存 → 復元時にTEMPだけで全項目を戻せる
@@ -3645,8 +3649,9 @@ async function restoreFetchList() {
       const d = it.updatedAt ? new Date(it.updatedAt) : null;
       const ds = d ? (d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2)) : '';
       const name = ((it.groom || '') + '　・　' + (it.bride || '')).replace(/^　・　|　・　$/g, '').trim();
+      const cd = it.ceremonyDate ? ('挙式 ' + it.ceremonyDate + '　/　') : '';
       const row = document.createElement('div'); row.className = 'restore-item';
-      row.innerHTML = '<div class="ri-name">' + (name || '(名称未設定)') + '</div><div class="ri-sub">' + ds + '　/　' + it.uid + '</div>';
+      row.innerHTML = '<div class="ri-name">' + (name || '(名称未設定)') + '</div><div class="ri-sub">' + cd + ds + '　/　' + it.uid + '</div>';
       row.onclick = () => restoreSelectUid(it.uid, name);
       listEl.appendChild(row);
     });
