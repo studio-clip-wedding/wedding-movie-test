@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.53 -->
+<!-- FORM VERSION: v2.3.54 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -521,7 +521,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.53</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.54</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -655,7 +655,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 
 // ==============================================
 // GENERATOR VERSION: 2026.07.02.007
-// FORM VERSION: v2.3.53
+// FORM VERSION: v2.3.54
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -668,7 +668,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.53';
+const _FORM_VERSION = 'v2.3.54';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -4106,6 +4106,7 @@ async function restoreTempImages(uid) {
         const isVideoFile = f.mimeType && f.mimeType.includes('video');
         if (isVideoSlot !== isVideoFile) return;
 
+        const isVoice = wrap?.classList.contains('voice-wrap') || (inp.accept?.includes('audio')) || (f.mimeType && f.mimeType.startsWith('audio'));
         const byteChars = atob(f.base64);
         const byteArr = new Uint8Array(byteChars.length);
         for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
@@ -4117,18 +4118,38 @@ async function restoreTempImages(uid) {
         item._resolvedPrefix = wrap?._resolvedPrefix || ''; item._fieldId = key; item._tempSaved = true;
         const del = document.createElement('button');
         del.className = 'file-del'; del.textContent = '✕'; del.type = 'button';
-        del.onclick = () => { list.innerHTML = ''; if (wrap) unlockPair(wrap); markDirty(); };
         if (blob.type.startsWith('image/')) {
           const url = URL.createObjectURL(blob);
           const thumb = document.createElement('img'); thumb.className = 'crop-thumb'; thumb.src = url;
           thumb.onclick = () => openLightbox(url); item.appendChild(thumb);
         }
-        const name = document.createElement('span'); name.textContent = ' ' + f.fileName + ' ';
-        const size = document.createElement('span'); size.className = 'file-size';
-        size.textContent = (blob.size / 1024).toFixed(0) + ' KB';
-        item.appendChild(name); item.appendChild(size); item.appendChild(del);
-        list.appendChild(item);
-        if (wrap) lockPair(wrap, '写真が入稿済みのため、動画は入稿できません。写真を削除してください。');
+        if (isVoice) {
+          // voice：🎙表示＋再生プレイヤー＋録音/アップロードの排他ロック
+          const icon = document.createElement('span'); icon.textContent = '🎙 ';
+          const name = document.createElement('span'); name.textContent = f.fileName + ' ';
+          const size = document.createElement('span'); size.className = 'file-size'; size.textContent = (blob.size / 1024).toFixed(0) + ' KB';
+          item.appendChild(icon); item.appendChild(name); item.appendChild(size); item.appendChild(del);
+          list.appendChild(item);
+          const audio = document.createElement('audio'); audio.controls = true; audio.src = URL.createObjectURL(blob); audio.className = 'voice-audio';
+          list.appendChild(audio);
+          // 排他ロック（setVoiceLockはクロージャで届かないのでインラインで）
+          const recB = wrap?.querySelector('.voice-rec'); if (recB) { recB.disabled = true; recB.style.opacity = '.4'; recB.style.pointerEvents = 'none'; }
+          inp.disabled = true;
+          const up = wrap?.querySelector('.voice-upload'); if (up) { up.style.opacity = '.4'; up.style.pointerEvents = 'none'; }
+          del.onclick = () => {
+            list.innerHTML = ''; markDirty();
+            if (recB) { recB.disabled = false; recB.style.opacity = ''; recB.style.pointerEvents = ''; }
+            inp.disabled = false; if (up) { up.style.opacity = ''; up.style.pointerEvents = ''; }
+          };
+        } else {
+          del.onclick = () => { list.innerHTML = ''; if (wrap) unlockPair(wrap); markDirty(); };
+          const name = document.createElement('span'); name.textContent = ' ' + f.fileName + ' ';
+          const size = document.createElement('span'); size.className = 'file-size';
+          size.textContent = (blob.size / 1024).toFixed(0) + ' KB';
+          item.appendChild(name); item.appendChild(size); item.appendChild(del);
+          list.appendChild(item);
+          if (wrap) lockPair(wrap, '写真が入稿済みのため、動画は入稿できません。写真を削除してください。');
+        }
       } catch (_eSingle) { console.warn('単発ファイルの復元をスキップ:', _eSingle); }
     });
 
