@@ -1,4 +1,4 @@
-<!-- FORM VERSION: v2.3.52 -->
+<!-- FORM VERSION: v2.3.53 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -521,7 +521,7 @@ body{padding-top:40px}
 </head>
 <body>
 <div id="temp-save-overlay"><div class="save-spinner"></div><div class="save-msg">データを保存中...</div><div class="save-sub">しばらくお待ちください</div></div>
-<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.52</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
+<div id="login-gate" data-managed="true"><div class="gate-title">Wedding Film 入稿フォーム</div><div class="gate-sub">ログインして入稿を開始してください</div><div class="gate-version">Form v2.3.53</div><button class="gate-btn" onclick="firebaseLogin()"><img src="https://www.google.com/favicon.ico" alt="Google">Googleでログイン</button><div class="restore-link" onclick="openRestorePanel()">管理者ログイン</div><div id="restore-panel" style="display:none"><div class="rp-row"><input id="restore-pass" type="password" placeholder="復元用パスワード"><button onclick="restoreVerifyPass()">確認</button></div><div id="restore-list"></div></div></div>
 <div id="unsaved-bar">⚠ 未保存の変更があります。フォームを閉じる前に必ず保存してください。</div><div id="save-bar"><button id="save-btn" onclick="saveAll()">💾 保存する</button><span class="save-status" id="save-status"></span></div><div id="login-bar"><span class="user-name" id="login-user-name"></span><button id="login-btn" style="display:none" onclick="firebaseLogin()">Googleでログイン</button><button id="logout-btn" style="display:none" onclick="firebaseLogout()">ログアウト</button></div>
 <div id="upload-screen" style="display:none"></div>
 <div id="text-check-modal">
@@ -541,7 +541,7 @@ body{padding-top:40px}
     </div>
   </div>
 <div id="form-screen" style="display: block;">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="form-title">ProfileMovie_More 入稿フォーム</div>
     <div class="hdr-right" style="display:none">
@@ -579,7 +579,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
   <p class="success-msg">担当者より3営業日以内にご連絡いたします。<br>素敵な結婚式動画を一緒に作り上げましょう。</p>
 </div>
 <div id="confirm-screen">
-  <div class="sticky-wrap" style="top: 72px;">
+  <div class="sticky-wrap">
   <div class="form-header">
     <div class="form-header-title" id="confirm-title-text">Wedding Film — 入稿フォーム</div>
   </div>
@@ -655,7 +655,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 
 // ==============================================
 // GENERATOR VERSION: 2026.07.02.007
-// FORM VERSION: v2.3.52
+// FORM VERSION: v2.3.53
 // 工程1: 再送信ロック（送信成功後にロック→パスワード画面→解除）
 // v2.3.7: posFieldIdスコープバグ修正（マット使用時の送信失敗を解消）
 // v2.3.8: TEMP命名のsubIdをセクション込みに（新郎/新婦で同名サブセクションが衝突しないように）
@@ -668,7 +668,7 @@ https://isum.or.jp/music/</div></div><div class="field branch-hidden" data-defro
 // ==============================================
 
 const SAVE_KEY = 'wf_v7';
-const _FORM_VERSION = 'v2.3.52';
+const _FORM_VERSION = 'v2.3.53';
 window._FORM_VERSION = _FORM_VERSION;
 let _rows = [], _secs = [], _curSec = 0, _blkCnt = 0, _saveTimer = null, _adminPass = 'studio2024';
 
@@ -1573,14 +1573,23 @@ function buildVoiceField(id) {
     item.innerHTML = '🎙 ' + esc(name) + ' ';
     const size = document.createElement('span'); size.className = 'file-size'; size.textContent = (blob.size / 1024 / 1024).toFixed(2) + ' MB';
     const del = document.createElement('button'); del.className = 'file-del'; del.textContent = '✕'; del.type = 'button';
-    del.onclick = () => { list.innerHTML = ''; inp.value = ''; markDirty(); };
+    del.onclick = () => { list.innerHTML = ''; inp.value = ''; setVoiceLock(false); markDirty(); };
     const audio = document.createElement('audio'); audio.controls = true; audio.src = URL.createObjectURL(blob); audio.className = 'voice-audio';
     item.appendChild(size); item.appendChild(del);
     item._blob = blob; item._name = name; item._fieldId = id;
     item._resolvedPrefix = wrap._resolvedPrefix || wrap.closest('.field')?._resolvedPrefix || '';
     item._tempSaved = false;
     list.appendChild(item); list.appendChild(audio);
+    setVoiceLock(true);  // 入力済み → もう片方を無効化
     markDirty();
+  }
+  // 録音とアップロードは排他（片方入れたら他方を無効化）
+  function setVoiceLock(locked) {
+    recBtn.disabled = locked; recBtn.style.opacity = locked ? '.4' : '';
+    recBtn.style.pointerEvents = locked ? 'none' : '';
+    inp.disabled = locked;
+    upWrap.style.opacity = locked ? '.4' : '';
+    upWrap.style.pointerEvents = locked ? 'none' : '';
   }
 
   inp.addEventListener('change', () => {
@@ -2368,8 +2377,8 @@ async function validateAndConfirm(){
   // エラーなし → 確認ページへ
   // バナーを全て非表示
   document.querySelectorAll('.validate-banner').forEach(b => b.classList.remove('show'));
-  // 内容確認に進む前に必ず保存（保存トリガーが残ったまま進めないように）
-  try { await saveAll(); } catch(e) { console.warn('内容確認前の保存エラー:', e); }
+  // 内容確認に進む前、未保存の変更がある時だけ保存（保存済みならスルー）
+  if (_isDirty) { try { await saveAll(); } catch(e) { console.warn('内容確認前の保存エラー:', e); } }
   showConfirm();
 }
 
@@ -3311,7 +3320,8 @@ async function doTempSave() {
         const inp        = wrap?.querySelector('input[type=file]');
         const isVideo    = inp?.accept?.includes('video');
         const fieldLabel = '素材';
-        const ext        = item._blob.type.includes('video') ? '.mp4' : '.jpg';
+        const _st2       = (item._blob.type || 'image/jpeg').split('/')[1] || 'jpeg';
+        const ext        = '.' + _st2.replace('jpeg', 'jpg').replace('mpeg', 'mp3').replace('x-m4a', 'm4a');
         const slot       = wrap?._slot || 1;
         const fieldId    = tempKeyFor(subId, blockIdx + 1, slot);  // subId_1_素材 / subId_1-02_素材
         const fileName   = fieldId + ext;
@@ -3351,7 +3361,8 @@ async function doTempSave() {
     const wrap = list.closest('.file-wrap');
     const inp  = wrap?.querySelector('input[type=file]');
     const key  = singleTempKey(fieldEl);
-    const ext  = item._blob.type.includes('video') ? '.mp4' : '.jpg';
+    const _st  = (item._blob.type || 'image/jpeg').split('/')[1] || 'jpeg';
+    const ext  = '.' + _st.replace('jpeg', 'jpg').replace('mpeg', 'mp3').replace('x-m4a', 'm4a');
     if (!item._tempSaved) {
       files.push({ fieldId: key, fileName: key + ext, blobRef: item._blob, _item: item,
         mimeType: item._blob.type || 'image/jpeg', isMatto: false, base64: null });
